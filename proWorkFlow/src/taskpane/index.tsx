@@ -1,27 +1,30 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
-import App from "./components/App";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
+import App from "./components/App";
 
-/* global document, Office, module, require, HTMLElement */
+/* global document, Office, module, require */
 
-const title = "Contoso Task Pane Add-in";
+const title = "ProWorkflow for Outlook";
 
-const rootElement: HTMLElement | null = document.getElementById("container");
-const root = rootElement ? createRoot(rootElement) : undefined;
+const rootElement = document.getElementById("container");
+const root = createRoot(rootElement);
 
-/* Render application after Office initializes */
 Office.onReady(() => {
-  root?.render(
+  root.render(
     <FluentProvider theme={webLightTheme}>
       <App title={title} />
     </FluentProvider>
   );
 });
 
-if ((module as any).hot) {
-  (module as any).hot.accept("./components/App", () => {
+if (module.hot) {
+  module.hot.accept("./components/App", () => {
     const NextApp = require("./components/App").default;
-    root?.render(NextApp);
+    root.render(
+      <FluentProvider theme={webLightTheme}>
+        <NextApp title={title} />
+      </FluentProvider>
+    );
   });
 }
