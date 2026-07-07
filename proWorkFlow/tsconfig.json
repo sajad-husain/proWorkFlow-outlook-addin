@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "strict": true,
+    "types": ["node", "webpack-env", "office-js"],
     "allowUnusedLabels": false,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,

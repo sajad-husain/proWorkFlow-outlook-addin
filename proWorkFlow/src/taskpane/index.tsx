@@ -8,7 +8,15 @@ import App from "./components/App";
 const title = "ProWorkflow for Outlook";
 
 const rootElement = document.getElementById("container");
+if (!rootElement) {
+  throw new Error("Root element not found");
+}
 const root = createRoot(rootElement);
+declare const module: {
+  hot?: {
+    accept(path: string, callback: () => void): void;
+  };
+};
 
 Office.onReady(() => {
   root.render(
