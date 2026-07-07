@@ -1,38 +1,32 @@
 import * as React from "react";
-import { Image, tokens, makeStyles } from "@fluentui/react-components";
+import { makeStyles, tokens } from "@fluentui/react-components";
+import Header from "./Header";
+import CreateTaskForm from "./CreateTask/CreateTaskForm";
+import { useEmailContext } from "../hooks/useEmailContext";
 
-export interface HeaderProps {
+export interface AppProps {
   title: string;
-  logo: string;
-  message: string;
 }
 
 const useStyles = makeStyles({
-  welcome__header: {
+  root: {
+    minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    paddingBottom: "30px",
-    paddingTop: "100px",
-    backgroundColor: tokens.colorNeutralBackground3,
-  },
-  message: {
-    fontSize: tokens.fontSizeHero900,
-    fontWeight: tokens.fontWeightRegular,
-    fontColor: tokens.colorNeutralBackgroundStatic,
+    backgroundColor: tokens.colorNeutralBackground1,
   },
 });
 
-const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
-  const { title, logo, message } = props;
+const App: React.FC<AppProps> = (props: AppProps) => {
   const styles = useStyles();
+  const { emailData, loading } = useEmailContext();
 
   return (
-    <section className={styles.welcome__header}>
-      <Image width="90" height="90" src={logo} alt={title} />
-      <h1 className={styles.message}>{message}</h1>
-    </section>
+    <div className={styles.root}>
+      <Header logo="assets/logo-filled.png" title={props.title} />
+      <CreateTaskForm emailData={emailData} loading={loading} />
+    </div>
   );
 };
 
-export default Header;
+export default App;
