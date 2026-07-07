@@ -26,12 +26,18 @@
     "watch": "webpack --mode development --watch"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@fluentui/react-components": "^9.55.1",
     "@fluentui/react-icons": "^2.0.264",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
+    "axios": "^1.18.1",
     "core-js": "^3.36.0",
     "es6-promise": "^4.2.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^7.18.1",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {
