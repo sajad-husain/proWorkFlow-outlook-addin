@@ -11,7 +11,7 @@ This document traces every code path from entry point to final action.
 ### Step-by-step trace
 
 ```
-📄 taskpane.html                          (line 1-26)
+📄 taskpane.html                          (line 1-41)
    │
    │  HTML page loaded in Outlook task pane webview.
    │  Loads office.js from CDN:
@@ -20,93 +20,68 @@ This document traces every code path from entry point to final action.
    │  Provides <div id="tridentmessage"> fallback for IE/Edge Legacy.
    │
    ▼
-📄 index.tsx                               (line 1-27)
+📄 index.tsx                               (line 1-30)
    │
    │  Imports:
    │    React, createRoot, App, FluentProvider, webLightTheme
    │
-   │  const title = "Contoso Task Pane Add-in"        (line 8)
+   │  const title = "ProWorkflow for Outlook"         (line 8)
    │  const rootElement = document.getElementById("container")  (line 10)
    │  const root = createRoot(rootElement)              (line 11)
    │
-   │  Office.onReady(() => {                            (line 14)
-   │    // Waits for Office.js to fully initialize.
-   │    // The callback fires once Office is ready.
-   │    root.render(                                     (line 15)
-   │      <FluentProvider theme={webLightTheme}>         (line 16)
-   │        <App title={title} />                        (line 17)
+   │  Office.onReady(() => {                            (line 13)
+   │    root.render(                                     (line 14)
+   │      <FluentProvider theme={webLightTheme}>         (line 15)
+   │        <App title={title} />                        (line 16)
    │      </FluentProvider>
    │    );
    │  });
    │
-   │  HMR support:                                       (line 22-27)
+   │  HMR support:                                       (line 21-30)
    │    if (module.hot) { hot.accept("./components/App", ...) }
    │
    ▼
-📄 App.tsx                                 (line 1-47)
+📄 App.tsx                                 (line 1-32)
    │
    │  Imports:
-   │    Header, HeroList, HeroListItem, TextInsertion
-   │    makeStyles, Fluent UI icons (Ribbon24Regular, LockOpen24Regular,
-   │    DesignIdeas24Regular)
-   │    insertText from "../taskpane"
+   │    Header, CreateTaskForm, useEmailContext, makeStyles
    │
-   │  const listItems: HeroListItem[] = [                (line 23-36)
-   │    { icon: <Ribbon24Regular />, primaryText: "Achieve more..." },
-   │    { icon: <LockOpen24Regular />, primaryText: "Unlock features..." },
-   │    { icon: <DesignIdeas24Regular />, primaryText: "Create and visualize..." }
-   │  ]
-   │
-   │  Renders:                                           (line 38-44)
-   │    <div className={styles.root}>                    (line 39)
-   │      <Header logo="assets/logo-filled.png"          (line 40)
-   │              title="Contoso Task Pane Add-in"
-   │              message="Welcome" />
-   │      <HeroList message="Discover what..."           (line 41)
-   │               items={listItems} />
-   │      <TextInsertion insertText={insertText} />      (line 42)
+   │  const { emailData, loading } = useEmailContext()  (line 22)
+   │    ↓
+   │  Hook fires on mount — extracts email data from the
+   │  current Outlook item (subject, body, from, attachments)
+   │    ↓
+   │  Renders:                                           (line 24-28)
+   │    <div className={styles.root}>
+   │      <Header logo="assets/logo-filled.png"
+   │              title={props.title} />
+   │      <CreateTaskForm emailData={emailData}
+   │                      loading={loading} />
    │    </div>
    │
    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Component Tree (rendered concurrently — no nesting depth)   │
+│  Component Tree                                              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
-│  📄 Header.tsx  (line 26-36)                                  │
-│    Props: { title, logo, message }                             │
-│    Renders:                                                    │
-│      <section className={styles.welcome__header}>             │
-│        <Image width="90" height="90" src={logo} alt={title} />│
-│        <h1 className={styles.message}>{message}</h1>          │
-│      </section>                                                │
+│  📄 Header.tsx                                                │
+│    Props: { title, logo }                                     │
+│    Renders: <Image> + <h1> with title                         │
 │                                                               │
-│  📄 HeroList.tsx  (line 44-62)                                │
-│    Props: { message: string, items: HeroListItem[] }           │
-│    Maps items → <li> with icon + primaryText                  │
-│    Renders:                                                    │
-│      <div className={styles.welcome__main}>                  │
-│        <h2>{message}</h2>                                     │
-│        <ul>                                                    │
-│          {items.map((item, index) => (                         │
-│            <li key={index}>                                    │
-│              <i>{item.icon}</i>                                │
-│              <span>{item.primaryText}</span>                   │
-│            </li>                                               │
-│          ))}                                                   │
-│        </ul>                                                   │
-│      </div>                                                    │
-│                                                               │
-│  📄 TextInsertion.tsx  (line 31-54)                           │
-│    Props: { insertText: (text: string) => void }               │
-│    State: text = useState("Some text.")                        │
-│    Renders:                                                    │
-│      <div className={styles.textPromptAndInsertion}>          │
-│        <Field label="Enter text...">                           │
-│          <Textarea value={text} onChange={handleTextChange} /> │
-│        </Field>                                                │
-│        <Field>Click the button to insert text.</Field>         │
-│        <Button onClick={handleTextInsertion}>Insert text</Button>│
-│      </div>                                                    │
+│  📄 CreateTaskForm.tsx (line 125-416)                        │
+│    Props: { emailData, loading }                              │
+│    States: formData, isSubmitting                             │
+│    Renders:                                                   │
+│      ├─ <Toaster /> (notification toasts)                    │
+│      ├─ Email preview (subject, from)                        │
+│      ├─ Workspace <Select>                                   │
+│      ├─ Task list <Select> (filtered by workspace)           │
+│      ├─ Task <Select> (for editing)                          │
+│      ├─ Title <Input> (pre-filled from email subject)        │
+│      ├─ Description <Textarea> (pre-filled from email body)  │
+│      ├─ Assignee <Select> + Due date <Input type="date">    │
+│      ├─ Urgent checkbox + Add attachments checkbox           │
+│      └─ Submit <button>                                      │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -114,43 +89,55 @@ This document traces every code path from entry point to final action.
 ### State Initialization
 
 ```
-TextInsertion.tsx:32
-  const [text, setText] = useState<string>("Some text.");
+hooks/useEmailContext.ts:12
+  const [emailData, setEmailData] = useState<EmailData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  When user types in the Textarea:
-    handleTextChange(event)          (line 38-40)
-      → setText(event.target.value)  (line 39)
-      → React re-renders Textarea with new value
+  On mount (useEffect):
+    → Reads item.subject (sync)
+    → Reads item.from.emailAddress (sync)
+    → Calls item.body.getAsync("text") (async)       [line 30-35]
+    → Reads item.attachments (sync)
+    → setEmailData({ subject, body, from, attachments })
+    → setLoading(false)
+    → Fallback mock data if Office.context.mailbox is unavailable [line 58-65]
+
+CreateTaskForm.tsx:148
+  const [formData, setFormData] = useState({
+    workspace: "", taskList: "", task: "", title: "",
+    description: "", assignee: "", dueDate: "",
+    isUrgent: false, addAttachments: false
+  });
+
+  useEffect pre-fills title & description from emailData [line 163-171]:
+    When emailData changes → setFormData({ ...prev, title: emailData.subject, description: emailData.body })
 ```
 
 ---
 
-## 2. Text Insertion Flow (User Action)
+## 2. Task Creation Flow (User Action)
 
 ```
-User types in Textarea
-  → handleTextChange(event)                     [TextInsertion.tsx:38]
-  → setText(event.target.value)                 [TextInsertion.tsx:39]
-  → Component re-renders with updated text
+User opens task pane → email data loads automatically
+  → title & description pre-filled from email subject/body
+  → User selects workspace, task list, assignee, due date
+  → User optionally checks "Mark as Urgent" / "Add attachments"
 
-User clicks "Insert text" Button
-  → handleTextInsertion()                       [TextInsertion.tsx:34]
-  → await props.insertText(text)                [TextInsertion.tsx:35]
+User clicks "Create task" button
+  → handleSubmit(e)                          [CreateTaskForm.tsx:191]
+  → setIsSubmitting(true)
+  → console.log("Creating task:", formData)   [line 197]
+  → Simulates API call (1.5s delay)           [line 200]
       ↓
-    📄 taskpane.ts  (line 3-17)
-      insertText(text)
-      → Office.context.mailbox.item             [line 6]
-          ?.body.setSelectedDataAsync(           [line 6-13]
-            text,
-            { coercionType: Office.CoercionType.Text },
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Failed) {
-                throw asyncResult.error.message;
-              }
-            }
-          )
-      → Text inserted at cursor in email body
-      → On failure: error logged to console     [line 16]
+    (FUTURE: calls proworkflowApi.createTask())
+    📄 services/proworkflowApi.ts
+      → if USE_MOCK: returns mockTaskCreationResponse  [line 57-61]
+      → if !USE_MOCK: axios.post('/tasks', taskData)   [line 63-67]
+      ↓
+  → On success: dispatchToast("Task Created Successfully!") [line 202-208]
+  → On error: dispatchToast("Error Creating Task")        [line 222-228]
+  → setFormData resets to defaults                         [line 211-220]
+  → setIsSubmitting(false)                                 [line 230]
 ```
 
 ---
@@ -292,31 +279,42 @@ VS Code: "Outlook Desktop (Edge Chromium)" launch config
 ## 6. Data Flow Diagram
 
 ```
-┌──────────────┐     Typing     ┌──────────────────┐
-│   Textarea    │ ──────────────▶│  handleTextChange │
-│  (controlled) │◀──────────────│  setText(value)   │
-└──────────────┘  re-render     └──────────────────┘
-       │
-       │ Click "Insert text"
-       ▼
-┌──────────────────┐
-│ handleTextInsert │
-│   await insert   │
-│   Text(text)     │
-└──────┬───────────┘
-       │
+┌──────────────┐
+│  Outlook      │  Outlook opens add-in on message read
+│  Mailbox API  │
+└──────┬───────┘
+       │ Office.context.mailbox.item
        ▼
 ┌─────────────────────────────────────┐
-│  taskpane.ts: insertText(text)      │
-│  Office.context.mailbox.item.body   │
-│  .setSelectedDataAsync(text, ...)   │
+│  useEmailContext hook                │
+│  ├─ item.subject (sync)             │
+│  ├─ item.from.emailAddress (sync)   │
+│  ├─ item.body.getAsync("text")      │
+│  ├─ item.attachments (sync)         │
+│  └─ returns { emailData, loading }  │
 └──────────────┬──────────────────────┘
-               │
+               │ emailData: { subject, body, from, ... }
                ▼
 ┌─────────────────────────────────────┐
-│  Office.js API Bridge               │
-│  → Outlook writes text to email     │
-│  → AsyncResult returned to callback │
+│  CreateTaskForm                      │
+│  ├─ useEffect pre-fills title/desc  │
+│  ├─ User fills remaining fields     │
+│  └─ handleSubmit() on click         │
+└──────────────┬──────────────────────┘
+               │ formData
+               ▼
+┌─────────────────────────────────────┐          ┌──────────────────────┐
+│  proworkflowApi.createTask()        │──if────▶│  Mock response       │
+│  (USE_MOCK = true by default)       │  MOCK    │  (1.5s delay)        │
+│                                     │─────────│                      │
+│  axios.post('/tasks', formData)     │  REAL    │  ProWorkflow API     │
+│                                     │          │  (api.proworkflow.net)│
+└──────────────┬──────────────────────┘          └──────────────────────┘
+               │ result
+               ▼
+┌─────────────────────────────────────┐
+│  Toast notification (success/error) │
+│  └─ Form reset on success          │
 └─────────────────────────────────────┘
 ```
 
@@ -329,28 +327,46 @@ index.tsx
   ├── import App from "./components/App"
   ├── import { FluentProvider, webLightTheme } from "@fluentui/react-components"
   ├── import { createRoot } from "react-dom/client"
-  │
+
 App.tsx
   ├── import Header from "./Header"
-  ├── import HeroList, { HeroListItem } from "./HeroList"
-  ├── import TextInsertion from "./TextInsertion"
-  ├── import { insertText } from "../taskpane"
-  ├── import { makeStyles } from "@fluentui/react-components"
-  └── import { icons } from "@fluentui/react-icons"
-      │
+  ├── import CreateTaskForm from "./CreateTask/CreateTaskForm"
+  ├── import { useEmailContext } from "../hooks/useEmailContext"
+  └── import { makeStyles } from "@fluentui/react-components"
+
+CreateTaskForm.tsx
+  ├── import { useState, useEffect } from "react"
+  ├── import { makeStyles, tokens, Text, Input, Textarea, Button,
+  │          Select, Checkbox, Card, Spinner, Field, Divider,
+  │          Toast, ToastTitle, ToastBody, Toaster,
+  │          useToastController } from "@fluentui/react-components"
+  └── import { Add24Regular, Calendar24Regular, Person24Regular,
+              Flag24Regular, CheckmarkCircle24Regular } from "@fluentui/react-icons"
+
 Header.tsx
-  ├── import { Image, tokens, makeStyles } from "@fluentui/react-components"
-  │
-HeroList.tsx
-  ├── import { tokens, makeStyles } from "@fluentui/react-components"
-  │
-TextInsertion.tsx
-  ├── import { useState } from "react"
-  └── import { Button, Field, Textarea, tokens, makeStyles } from "@fluentui/react-components"
-      │
-taskpane.ts  ←── shared Office.js logic
+  └── import { Image, tokens, makeStyles } from "@fluentui/react-components"
+
+hooks/useEmailContext.ts
+  ├── import { useState, useEffect } from "react"
+  └── (uses global Office — no import)
+
+services/proworkflowApi.ts
+  ├── import axios from "axios"
+  └── import { mockProjects, mockAssignees, mockTaskCreationResponse } from "./mockData"
+
+AppLayout.tsx (standalone, not yet used in main flow)
+  ├── import { AppBar, Toolbar, Typography, Container, Box,
+  │          IconButton, Drawer, List, ListItem, ListItemIcon,
+  │          ListItemText, Divider } from "@mui/material"
+  ├── import MenuIcon from "@mui/icons-material/Menu"
+  ├── import TaskIcon from "@mui/icons-material/Assignment"
+  ├── import EditIcon from "@mui/icons-material/Edit"
+  ├── import CloseIcon from "@mui/icons-material/Close"
+  └── import { useNavigate } from "react-router-dom"
+
+taskpane.ts  ←── shared Office.js utility
   └── (no imports)
-      │
+
 commands.ts  ←── separate bundle, no dependency on taskpane
   └── (no imports)
 ```
@@ -367,11 +383,19 @@ commands.ts  ←── separate bundle, no dependency on taskpane
        │     → Nothing rendered (root.render never called)
        │     → Check browser console for Office.js errors
        │
-       ├── insertText() fails (taskpane.ts:10-12)
-       │     → asyncResult.status === Office.AsyncResultStatus.Failed
-       │     → throw asyncResult.error.message
-       │     → catch: console.log("Error: " + error)
-       │     → User sees no feedback (silent failure)
+       ├── useEmailContext fails (hooks/useEmailContext.ts:49-51)
+       │     → catch(error) { console.error('Error loading email:', error) }
+       │     → emailData remains null, loading → false
+       │     → Form renders with empty fields (no pre-fill)
+       │
+       ├── form submit fails (CreateTaskForm.tsx:221-228)
+       │     → catch(error)
+       │     → dispatchToast("Error Creating Task", { intent: "error" })
+       │     → User sees error toast notification
+       │
+       ├── proworkflowApi fails (services/proworkflowApi.ts)
+       │     → catch(error) { console.error('API Error:', error); throw error; }
+       │     → Error propagates to submit handler
        │
        └── Component render error
              → React error boundary needed (not yet implemented)
@@ -394,20 +418,28 @@ commands.ts  ←── separate bundle, no dependency on taskpane
 
 ## 9. Future Growth Paths
 
-The following patterns are expected to be added for ProWorkflow integration:
+The following are planned enhancements:
 
 ```
-User views email in Outlook
-  → Add-in extracts email details (sender, subject, body)
-  → Data formatted as ProWorkflow task payload
-  → Axios POST to ProWorkflow API
-  → Response displayed in task pane
+1. Connect real ProWorkflow API:
+   → Set USE_MOCK = false in services/proworkflowApi.ts
+   → Add real API credentials
+   → Wire up axios calls instead of mock data
 
-Expected new data flow:
-  App.tsx
-    → gets email context from Office.context.mailbox.item
-    → calls a new api/ service module
-    → api module uses axios to call ProWorkflow
-    → response flows back through React state
-    → UI updates with task creation result
+2. Multi-view routing:
+   → AppLayout.tsx with React Router DOM
+   → Views: Create Task, Edit Task, View Tasks, Settings
+   → Drawer navigation already built in AppLayout
+
+3. Attachment support:
+   → Implement "Add attachments" checkbox logic
+   → Upload email attachments to ProWorkflow tasks
+
+4. Error boundaries:
+   → Add React error boundary component
+   → Graceful fallback UI instead of white screen
+
+5. Authentication:
+   → ProWorkflow OAuth or API key management UI
+   → Persistent auth state
 ```

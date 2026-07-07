@@ -116,13 +116,16 @@ Because `sourceMap: true` is set in `tsconfig.json` and `devtool: "source-map"` 
 
 | File | Best Breakpoint Location | What to Inspect |
 |---|---|---|
-| `index.tsx:14` | `Office.onReady(() => {` | Is Office.js initializing? |
-| `taskpane.ts:6` | `Office.context.mailbox.item?.body.setSelectedDataAsync(...)` | Is the Outlook API call being made? |
-| `taskpane.ts:10` | `if (asyncResult.status === ...)` | Did the API call succeed or fail? |
+| `index.tsx:13` | `Office.onReady(() => {` | Is Office.js initializing? |
+| `hooks/useEmailContext.ts:19` | `const item = Office.context.mailbox.item` | Is the Outlook item accessible? |
+| `hooks/useEmailContext.ts:30` | `item.body?.getAsync('text', ...)` | Is the email body being extracted? |
+| `services/proworkflowApi.ts:28` | `getProjects` | Is the API being called? |
+| `services/proworkflowApi.ts:56` | `createTask` | Is task creation triggered? |
 | `commands.ts:16` | `function action(event)` | Is the command function triggered? |
 | `commands.ts:25` | `Office.context.mailbox.item?.notificationMessages.replaceAsync(...)` | Is the notification being set? |
-| `TextInsertion.tsx:34` | `handleTextInsertion` | Is the button click handled? |
-| `App.tsx:23` | `const listItems` | Are the components rendering correctly? |
+| `CreateTaskForm.tsx:163` | `useEffect` pre-fill | Is the email data being used to pre-fill? |
+| `CreateTaskForm.tsx:191` | `handleSubmit` | Is the form submission handled? |
+| `App.tsx:22` | `const { emailData, loading } = useEmailContext()` | Are the components rendering correctly? |
 
 ### CSS-in-JS Breakpoints
 

@@ -14,14 +14,14 @@ This document provides a complete, structured map of every source file in the pr
 | **Imports** | `react`, `react-dom/client` (`createRoot`), `./components/App`, `@fluentui/react-components` (`FluentProvider`, `webLightTheme`) |
 | **Exports** | None (side-effect module) |
 | **Entry** | `Office.onReady(() => root.render(<FluentProvider><App/></FluentProvider>))` |
-| **Lines** | 27 |
-| **Key line** | `14: Office.onReady(...)` — app boot after Office.js init |
-| **HMR** | Lines 22-27: `module.hot.accept` |
+| **Lines** | 30 |
+| **Key line** | `13: Office.onReady(...)` — app boot after Office.js init |
+| **HMR** | Lines 21-30: `module.hot.accept` |
 
 ---
 
 ### `src/taskpane/taskpane.ts`
-**Purpose:** Office.js integration layer. Contains the function that writes text to the email compose surface.
+**Purpose:** Office.js utility functions.
 
 | Detail | Value |
 |---|---|
@@ -30,7 +30,7 @@ This document provides a complete, structured map of every source file in the pr
 | **Lines** | 18 |
 | **Key line** | `6: Office.context.mailbox.item?.body.setSelectedDataAsync(...)` |
 | **Error handling** | Lines 10-12: throws on `AsyncResultStatus.Failed` |
-| **Used by** | `App.tsx` (line 7 imports and passes to `TextInsertion`) |
+| **Status** | Utility file — `insertText` is not currently imported by any component |
 
 ---
 
@@ -39,30 +39,100 @@ This document provides a complete, structured map of every source file in the pr
 
 | Detail | Value |
 |---|---|
-| **Imports** | `Header`, `HeroList` (+ `HeroListItem`), `TextInsertion`, `@fluentui/react-components` (`makeStyles`), `@fluentui/react-icons` (`Ribbon24Regular`, `LockOpen24Regular`, `DesignIdeas24Regular`), `insertText` from `../taskpane` |
+| **Imports** | `Header`, `CreateTaskForm`, `useEmailContext`, `@fluentui/react-components` (`makeStyles`, `tokens`) |
 | **Exports** | `App(props: AppProps)` |
 | **Props** | `{ title: string }` |
-| **Lines** | 47 |
-| **Key line** | `42: <TextInsertion insertText={insertText} />` — passes Office.js function to UI |
-| **Static data** | Lines 23-36: `HeroListItem[]` with Fluent UI icons |
+| **Lines** | 32 |
+| **Key line** | `22: const { emailData, loading } = useEmailContext()` — extracts email data via hook |
+| **Key line** | `27: <CreateTaskForm emailData={emailData} loading={loading} />` — passes data to form |
 
 ---
 
 ### `src/taskpane/components/Header.tsx`
-**Purpose:** Displays the add-in logo and welcome message.
+**Purpose:** Displays the add-in logo and title.
 
 | Detail | Value |
 |---|---|
 | **Imports** | `@fluentui/react-components` (`Image`, `tokens`, `makeStyles`) |
 | **Exports** | `Header(props: HeaderProps)` |
-| **Props** | `{ title: string, logo: string, message: string }` |
+| **Props** | `{ title: string, logo: string }` |
 | **Lines** | 38 |
 | **Style** | Fluent UI tokens-based CSS-in-JS via `makeStyles` |
 
 ---
 
+### `src/taskpane/components/CreateTask/CreateTaskForm.tsx`
+**Purpose:** Full task creation form with workspace selection, task list, title, description, assignee, due date, urgency, and attachment options.
+
+| Detail | Value |
+|---|---|
+| **Imports** | `react` (`useState`, `useEffect`), `@fluentui/react-components` (varied), `@fluentui/react-icons` |
+| **Exports** | `CreateTaskForm(props: CreateTaskFormProps)` |
+| **Props** | `{ emailData: EmailData \| null, loading: boolean }` |
+| **States** | `formData` (workspace, taskList, title, etc.), `isSubmitting` |
+| **Lines** | 418 |
+| **Key line** | `163: useEffect` — pre-fills title/description from emailData |
+| **Key line** | `191: handleSubmit` — simulates task creation (dispatches toast) |
+| **Notifications** | Uses `useToastController` for success/error toasts |
+
+---
+
+### `src/taskpane/hooks/useEmailContext.ts`
+**Purpose:** Custom hook that extracts email context from the current Outlook item.
+
+| Detail | Value |
+|---|---|
+| **Imports** | `react` (`useState`, `useEffect`) |
+| **Exports** | `useEmailContext()` (function), `EmailData` (interface) |
+| **Returns** | `{ emailData: EmailData \| null, loading: boolean }` |
+| **Lines** | 70 |
+| **Key line** | `19: const item = Office.context.mailbox.item` — accesses Outlook item |
+| **Key line** | `30: item.body?.getAsync('text', ...)` — async body extraction |
+| **Fallback** | Lines 58-65: mock data for testing outside Outlook |
+
+---
+
+### `src/taskpane/services/proworkflowApi.ts`
+**Purpose:** ProWorkflow API client with mock mode and real Axios-based HTTP client.
+
+| Detail | Value |
+|---|---|
+| **Imports** | `axios`, `mockData` (`mockProjects`, `mockAssignees`, `mockTaskCreationResponse`) |
+| **Exports** | `proWorkflowApi` (object with `getProjects`, `getAssignees`, `createTask`), `setApiMode` |
+| **Mock mode** | `USE_MOCK = true` by default |
+| **Key line** | `28: getProjects` — fetches projects (mock or API) |
+| **Key line** | `56: createTask` — creates a task (mock or API) |
+| **Lines** | 75 |
+
+---
+
+### `src/taskpane/services/mockData.ts`
+**Purpose:** Mock data for API responses during development.
+
+| Detail | Value |
+|---|---|
+| **Exports** | `mockProjects`, `mockAssignees`, `mockTaskCreationResponse` |
+| **Used by** | `proworkflowApi.ts` |
+| **Status** | Empty stub — needs mock data arrays |
+
+---
+
+### `src/taskpane/components/Layout/AppLayout.tsx`
+**Purpose:** MUI-based drawer layout with navigation for future multi-view routing.
+
+| Detail | Value |
+|---|---|
+| **Imports** | `react` (`useState`), `@mui/material` (`AppBar`, `Toolbar`, `Drawer`, etc.), `@mui/icons-material`, `react-router-dom` (`useNavigate`) |
+| **Exports** | `AppLayout({ children, title })` |
+| **Menu items** | "Create Task" → `/create-task`, "Edit Task" → `/edit-task` |
+| **Lines** | 134 |
+| **Key line** | `24: AppLayout` — responsive drawer with permanent/temporary variants |
+| **Status** | Not yet wired into the app boot flow (standalone component) |
+
+---
+
 ### `src/taskpane/components/HeroList.tsx`
-**Purpose:** Displays a list of feature highlights with icons.
+**Purpose:** Displays a list of feature highlights with icons. **Not currently imported** (legacy template component).
 
 | Detail | Value |
 |---|---|
@@ -71,12 +141,11 @@ This document provides a complete, structured map of every source file in the pr
 | **Props** | `{ message: string, items: HeroListItem[] }` |
 | **HeroListItem** | `{ icon: React.JSX.Element, primaryText: string }` |
 | **Lines** | 62 |
-| **Key line** | `48: items.map(...)` — renders the list items |
 
 ---
 
 ### `src/taskpane/components/TextInsertion.tsx`
-**Purpose:** Provides the text input UI and insert button.
+**Purpose:** Provides text input UI and insert button. **Not currently imported** (legacy template component).
 
 | Detail | Value |
 |---|---|
@@ -85,8 +154,6 @@ This document provides a complete, structured map of every source file in the pr
 | **Props** | `{ insertText: (text: string) => void }` |
 | **State** | `useState<string>("Some text.")` — controlled textarea value |
 | **Lines** | 57 |
-| **Key line** | `34: handleTextInsertion` — calls `props.insertText(text)` on button click |
-| **Key line** | `38: handleTextChange` — updates state on textarea input |
 
 ---
 
@@ -136,13 +203,15 @@ This document provides a complete, structured map of every source file in the pr
 
 | Detail | Value |
 |---|---|
-| **Type** | `MailApp` |
-| **Id** | `22e64ad0-fb04-48d5-bf5f-eb99d21d1be9` |
-| **DisplayName** | `proWorkFlow` |
+| **Type** | `TaskPaneApp` |
+| **Id** | `3bdfe672-084d-4b1b-8a7d-a30dc378e90b` |
+| **DisplayName** | `ProWorkflow` |
 | **Permissions** | `ReadWriteItem` |
-| **Requirement** | Mailbox API v1.1 (base), v1.3 (VersionOverrides) |
-| **Tasks** | `ShowTaskpane` → taskpane.html, `ExecuteFunction` → `action()` |
-| **Lines** | 108 |
+| **Requirement** | Mailbox API v1.1 |
+| **Activation** | Message Read form only |
+| **Ribbon** | `Create Task` button → `ShowTaskpane` → taskpane.html |
+| **AppDomains** | `https://api.proworkflow.net` |
+| **Lines** | 88 |
 
 ---
 
@@ -183,8 +252,8 @@ This document provides a complete, structured map of every source file in the pr
 | **app_to_debug** | `outlook` |
 | **app_type_to_debug** | `desktop` |
 | **dev_server_port** | `3000` |
-| **Scripts** | 12 scripts (build, dev-server, start, stop, lint, etc.) |
-| **Dependencies** | React 18, Fluent UI v9, MUI v9, Axios, React Router DOM v7 |
+| **Scripts** | 13 scripts (build, dev-server, start, stop, lint, etc.) |
+| **Dependencies** | React 18, Fluent UI v9, MUI v9, Axios, React Router DOM v7, Emotion |
 | **DevDependencies** | TypeScript 5.4, Webpack 5, Babel, ts-loader, office-addin-* tools |
 | **Lines** | 82 |
 
@@ -244,14 +313,16 @@ react 18.2 ───────────────────────
 react-dom 18.2 ─────────────────────────────┤
 @fluentui/react-components 9.55.1 ──────────┤
 @fluentui/react-icons 2.0.264 ──────────────┤
-├── @mui/material 9.2.0       (unused)      │
-├── @mui/icons-material 9.2.0 (unused)      │
-├── axios 1.18.1              (unused)       │
-├── react-router-dom 7.18.1   (unused)       │
+├── @mui/material 9.2.0       (AppLayout)   │
+├── @mui/icons-material 9.2.0 (AppLayout)   │
+├── @emotion/react 11.14.0    (MUI dep)     │
+├── @emotion/styled 11.14.1   (MUI dep)     │
+├── axios 1.18.1              (API client)  │
+├── react-router-dom 7.18.1   (routing)     │
 ├── core-js 3.36.0            (polyfill)     │
 ├── regenerator-runtime 0.14.1 (polyfill)    │
 └── es6-promise 4.2.8         (polyfill)     │
-                                            │
+                                             │
 Office.js (loaded from CDN, not bundled) ───┘
 ```
 
@@ -260,16 +331,20 @@ Office.js (loaded from CDN, not bundled) ───┘
 ## File Size Reference
 
 | File | Lines | Est. Tokens | Complexity |
-|---|---|---|---|
-| `src/taskpane/index.tsx` | 27 | Low | Low |
+|---|---|---|---|---|
+| `src/taskpane/index.tsx` | 30 | Low | Low |
 | `src/taskpane/taskpane.ts` | 18 | Low | Low |
-| `src/taskpane/components/App.tsx` | 47 | Medium | Low |
+| `src/taskpane/hooks/useEmailContext.ts` | 70 | Medium | Medium |
+| `src/taskpane/services/proworkflowApi.ts` | 75 | Medium | Medium |
+| `src/taskpane/components/App.tsx` | 32 | Low | Low |
 | `src/taskpane/components/Header.tsx` | 38 | Low | Low |
 | `src/taskpane/components/HeroList.tsx` | 62 | Medium | Low |
 | `src/taskpane/components/TextInsertion.tsx` | 57 | Medium | Medium |
+| `src/taskpane/components/CreateTask/CreateTaskForm.tsx` | 418 | High | High |
+| `src/taskpane/components/Layout/AppLayout.tsx` | 134 | Medium | Medium |
 | `src/commands/commands.ts` | 35 | Low | Low |
 | `webpack.config.js` | 111 | High | Medium |
-| `manifest.xml` | 108 | Medium | Medium |
+| `manifest.xml` | 88 | Medium | Medium |
 | `package.json` | 82 | Medium | Low |
 | `tsconfig.json` | 37 | Low | Low |
 | `.vscode/launch.json` | 26 | Low | Low |

@@ -1,34 +1,37 @@
 # proWorkFlow Outlook Add-in
 
-Outlook Classic add-in that lets you create tasks in ProWorkflow directly from Outlook.
-
-> **Status:** Template scaffold. Currently contains the default Office Add-in Task Pane React template code. ProWorkflow API integration is not yet implemented.
+Outlook add-in that lets you create tasks in ProWorkflow directly from Outlook. Extracts email context (subject, body, sender) and pre-fills a task creation form — with mock mode and real API support.
 
 ## Project Structure
-
-The codebase lives in `proWorkFlow/` and follows the standard Office Add-in Task Pane + React template structure:
 
 ```
 proWorkFlow/
 ├── src/
-│   ├── commands/                    # Ribbon command functions (hidden page)
+│   ├── commands/                        # Ribbon command functions (hidden page)
 │   │   ├── commands.html
 │   │   └── commands.ts
-│   └── taskpane/                    # Main task pane UI (React SPA)
-│       ├── index.tsx                # React entry point
-│       ├── taskpane.html            # HTML shell
-│       ├── taskpane.ts              # Office.js integration
+│   └── taskpane/                        # Main task pane UI (React SPA)
+│       ├── index.tsx                    # React entry point
+│       ├── taskpane.html                # HTML shell
+│       ├── taskpane.ts                  # Office.js utilities
+│       ├── hooks/
+│       │   └── useEmailContext.ts       # Extract email data from Outlook item
+│       ├── services/
+│       │   ├── proworkflowApi.ts        # Axios-based ProWorkflow API client (mock + real)
+│       │   └── mockData.ts             # Mock data for API responses
 │       └── components/
-│           ├── App.tsx              # Root component
-│           ├── Header.tsx           # Logo & welcome
-│           ├── HeroList.tsx         # Feature list
-│           └── TextInsertion.tsx    # Text input & insert
-├── manifest.xml                     # Outlook add-in registration
-├── webpack.config.js                # Build config (multi-entry)
-├── tsconfig.json                    # TypeScript config
-├── package.json                     # Dependencies & scripts
-├── assets/                          # Icons & images
-└── docs/                            # Documentation (see below)
+│           ├── App.tsx                  # Root component
+│           ├── Header.tsx               # Logo & title
+│           ├── CreateTask/
+│           │   └── CreateTaskForm.tsx   # Full task creation form
+│           └── Layout/
+│               └── AppLayout.tsx        # MUI drawer layout (for future routing)
+├── manifest.xml                         # Outlook add-in registration
+├── webpack.config.js                    # Build config (multi-entry)
+├── tsconfig.json                        # TypeScript config
+├── package.json                         # Dependencies & scripts
+├── assets/                              # Icons & images
+└── docs/                                # Documentation (see below)
 ```
 
 ## Documentation
@@ -56,6 +59,9 @@ Press **F5** in VS Code (with "Outlook Desktop (Edge Chromium)" launch config) t
 
 - **React 18.2** + **TypeScript 5.4** (ES5 target)
 - **Fluent UI React v9** (theming, components, CSS-in-JS)
+- **MUI Material v9** (layout components — AppLayout drawer)
+- **Axios** (ProWorkflow API client, mock mode by default)
+- **React Router DOM v7** (routing for future multi-view)
 - **Office.js** (mailbox integration via CDN)
 - **Webpack 5** (multi-entry bundling, HMR, HTTPS dev server)
 - **core-js** + **regenerator-runtime** (IE11 polyfills)
@@ -73,7 +79,6 @@ Press **F5** in VS Code (with "Outlook Desktop (Edge Chromium)" launch config) t
 | `npm run lint` | Run ESLint |
 | `npm run validate` | Validate manifest.xml |
 | `npm run signin` | M365 account login |
-
-## Branching / Workflow
-
-This is a template project. All source code is in the `proWorkFlow/` subdirectory. The root `README.md` and `docs/` directory are at the repository root level.
+| `npm run signout` | M365 account logout |
+| `npm run lint:fix` | Auto-fix lint issues |
+| `npm run prettier` | Format with Prettier |

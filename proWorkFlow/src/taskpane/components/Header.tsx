@@ -23,7 +23,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
   return (
     <div className={styles.root}>
-      <Header logo="assets/logo-filled.png" title={props.title} />
+      <Header logo="assets/mainLogo.png" title={props.title} />
       <CreateTaskForm emailData={emailData} loading={loading} />
     </div>
   );
