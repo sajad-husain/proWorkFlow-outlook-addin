@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.vscode/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Office Add-in dev certs
+office-addin-dev-certs/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+*.js.map
+
+# IDE
+.idea/
+*.iml
+.vs/
