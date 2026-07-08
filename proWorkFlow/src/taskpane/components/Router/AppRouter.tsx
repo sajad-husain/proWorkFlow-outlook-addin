@@ -5,7 +5,7 @@ import EditTask from "../EditTask/EditTask";
 
 type Route = "create" | "edit";
 
-const AppRouter: React.FC = () => {
+export const AppRouter: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<Route>("create");
 
   const renderContent = () => {
@@ -26,5 +26,3 @@ const AppRouter: React.FC = () => {
     </>
   );
 };
-
-export default AppRouter;
