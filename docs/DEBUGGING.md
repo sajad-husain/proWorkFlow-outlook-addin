@@ -119,8 +119,8 @@ Because `sourceMap: true` is set in `tsconfig.json` and `devtool: "source-map"` 
 | `index.tsx:13` | `Office.onReady(() => {` | Is Office.js initializing? |
 | `hooks/useEmailContext.ts:19` | `const item = Office.context.mailbox.item` | Is the Outlook item accessible? |
 | `hooks/useEmailContext.ts:30` | `item.body?.getAsync('text', ...)` | Is the email body being extracted? |
-| `services/proworkflowApi.ts:28` | `getProjects` | Is the API being called? |
-| `services/proworkflowApi.ts:56` | `createTask` | Is task creation triggered? |
+| `services/powerflowApi.ts:28` | `getProjects` | Is the API being called? |
+| `services/powerflowApi.ts:56` | `createTask` | Is task creation triggered? |
 | `commands.ts:16` | `function action(event)` | Is the command function triggered? |
 | `commands.ts:25` | `Office.context.mailbox.item?.notificationMessages.replaceAsync(...)` | Is the notification being set? |
 | `CreateTaskForm.tsx:163` | `useEffect` pre-fill | Is the email data being used to pre-fill? |

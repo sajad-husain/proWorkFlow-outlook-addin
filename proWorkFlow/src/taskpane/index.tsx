@@ -5,8 +5,6 @@ import App from "./components/App";
 
 /* global document, Office, module, require */
 
-const title = "ProWorkflow for Outlook";
-
 const rootElement = document.getElementById("container");
 if (!rootElement) {
   throw new Error("Root element not found");
@@ -21,7 +19,7 @@ declare const module: {
 Office.onReady(() => {
   root.render(
     <FluentProvider theme={webLightTheme}>
-      <App title={title} />
+      <App />
     </FluentProvider>
   );
 });

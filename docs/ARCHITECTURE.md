@@ -28,7 +28,7 @@ proWorkFlow is an Outlook add-in (MailApp) built with React 18, TypeScript, Flue
 │  │  │                                              │   │
 │  │  │  Services:                                   │   │
 │  │  │  ┌──────────────────────┐                    │   │
-│  │  │  │  proworkflowApi.ts   │── Axios ──▶ PWF    │   │
+│  │  │  │  powerflowApi.ts     │── Axios ──▶ PWF    │   │
 │  │  │  │  (mock / real)       │     API            │   │
 │  │  │  └──────────────────────┘                    │   │
 │  │  └──────────────────────────────────────────────┘   │
@@ -55,19 +55,42 @@ proWorkFlow is an Outlook add-in (MailApp) built with React 18, TypeScript, Flue
 
 ```
 proWorkFlow/
+├── .eslintrc.json                   # ESLint config (Office Addins + React)
+├── .hintrc                          # Webhint config
+├── babel.config.json                # Babel presets (env + TypeScript)
+├── manifest.xml                     # Add-in manifest (Outlook registration)
+├── webpack.config.js                # Build configuration (multi-entry)
+├── tsconfig.json                    # TypeScript configuration
+├── package.json                     # Dependencies and scripts
+│
+├── .vscode/
+│   ├── extensions.json              # Recommended extensions
+│   ├── launch.json                  # Debug launch configurations
+│   ├── settings.json                # Workspace settings
+│   └── tasks.json                   # Build & debug tasks
+│
+├── assets/                          # Icons and images
+│   ├── icon-16.png
+│   ├── icon-32.png
+│   ├── icon-64.png
+│   ├── icon-80.png
+│   ├── icon-128.png
+│   ├── logo-filled.png
+│   └── mainLogo.png
+│
 ├── src/
 │   ├── commands/
-│   │   ├── commands.html          # Hidden HTML shell for ribbon command functions
-│   │   └── commands.ts            # Ribbon action handler (ExecuteFunction)
+│   │   ├── commands.html           # Hidden HTML shell for ribbon command functions
+│   │   └── commands.ts             # Ribbon action handler (ExecuteFunction)
 │   └── taskpane/
-│       ├── index.tsx              # React entry point (bootstraps the app)
-│       ├── taskpane.html          # HTML shell loaded in the task pane
-│       ├── taskpane.ts            # Office.js utility functions
+│       ├── index.tsx               # React entry point (bootstraps the app)
+│       ├── taskpane.html           # HTML shell loaded in the task pane
+│       ├── taskpane.ts             # Office.js utility functions
 │       ├── hooks/
-│       │   └── useEmailContext.ts # Hook to extract email data from Outlook item
+│       │   └── useEmailContext.ts  # Hook to extract email data from Outlook item
 │       ├── services/
-│       │   ├── proworkflowApi.ts  # Axios-based ProWorkflow API client (mock + real)
-│       │   └── mockData.ts        # Mock API response data
+│       │   ├── powerflowApi.ts     # Axios-based ProWorkflow API client (mock + real)
+│       │   └── mockflow.ts        # Mock API response data (stub)
 │       └── components/
 │           ├── App.tsx             # Root React component
 │           ├── Header.tsx          # Logo + title header
@@ -75,20 +98,12 @@ proWorkFlow/
 │           │   └── CreateTaskForm.tsx  # Full task creation form
 │           └── Layout/
 │               └── AppLayout.tsx   # MUI drawer layout (for future routing)
-├── manifest.xml                    # Add-in manifest (Outlook registration)
-├── webpack.config.js               # Build configuration (multi-entry)
-├── tsconfig.json                   # TypeScript configuration
-├── package.json                    # Dependencies and scripts
-├── .vscode/
-│   ├── launch.json                 # Debug launch configurations
-│   └── tasks.json                  # Build & debug tasks
-└── assets/                         # Icons and images
-    ├── icon-16.png
-    ├── icon-32.png
-    ├── icon-64.png
-    ├── icon-80.png
-    ├── icon-128.png
-    └── logo-filled.png
+│
+└── docs/                           # Documentation
+    ├── ARCHITECTURE.md
+    ├── CODE_FLOW.md
+    ├── DEBUGGING.md
+    └── FILE_MAP.md
 ```
 
 ## Entry Points
@@ -136,14 +151,14 @@ Ribbon appears in read message view
          │   React root created (createRoot)
          │         │
          │         ▼
-         │   <FluentProvider theme={webLightTheme}>
-         │     <App title="ProWorkflow for Outlook" />
-         │   </FluentProvider>
-         │         │
-         │         ▼
-         │   App renders:
-         │   ├─ <Header />
-         │   └─ <CreateTaskForm />
+          │   <FluentProvider theme={webLightTheme}>
+          │     <App />
+          │   </FluentProvider>
+          │         │
+          │         ▼
+          │   App renders:
+          │   ├─ <Header logo="assets/logo-filled.png" />
+          │   └─ <CreateTaskForm emailData emailData loading loading />
          │         │
          │         ▼
          │   useEmailContext hook fires:
@@ -175,16 +190,15 @@ Ribbon appears in read message view
 ## Component Tree
 
 ```
-<FluentProvider theme={webLightTheme}>              [index.tsx:15]
-  └── <App title="ProWorkflow for Outlook">         [App.tsx:20]
+<FluentProvider theme={webLightTheme}>              [index.tsx:19]
+  └── <App>                                         [App.tsx:16]
         ├── <Header                                 [Header.tsx]
-        │     logo="assets/logo-filled.png"
-        │     title={props.title} />
-        └── <CreateTaskForm                         [CreateTaskForm.tsx:125]
+        │     logo="assets/logo-filled.png" />
+        └── <CreateTaskForm                         [CreateTaskForm.tsx]
               emailData={emailData}
               loading={loading} />
 
-  Hook: useEmailContext()                            [hooks/useEmailContext.ts:12]
+  Hook: useEmailContext()                            [hooks/useEmailContext.ts]
     ├── Office.context.mailbox.item.subject (sync)
     ├── Office.context.mailbox.item.from (sync)
     ├── Office.context.mailbox.item.body.getAsync() (async)
@@ -230,18 +244,19 @@ No global state management library is used. The app is a single-view SPA (future
 
 The add-in is registered with Outlook via `manifest.xml`:
 
-- **Type:** `TaskPaneApp` (Outlook add-in)
+- **Type:** `MailApp` (Outlook add-in)
 - **Host:** `Mailbox`
 - **Permissions:** `ReadWriteItem`
-- **Activation:** Message Read form only (opens task pane when reading an email)
-- **Minimum Mailbox API:** v1.1
+- **Activation:** Message Compose form (ribbon buttons appear when composing an email)
+- **Minimum Mailbox API:** v1.1 (v1.3 for version overrides)
 
 ### Ribbon Configuration
 
 ```
-Message Read Command Surface
-  └── Group: "ProWorkflow"
-        └── Button "Create Task"  →  ShowTaskpane  →  taskpane.html
+Message Compose Command Surface
+  └── Group: "Contoso Add-in"
+        ├── Button "Show Task Pane"  →  ShowTaskpane  →  taskpane.html
+        └── Button "Perform an action"  →  ExecuteFunction  →  action()
 ```
 
 ## Key Design Decisions
@@ -256,6 +271,6 @@ Message Read Command Surface
 
 5. **Separate entry points** for taskpane and commands because they have different lifecycle requirements: the taskpane is a persistent UI, while commands are transient function executions.
 
-6. **Mock-first API layer** — `proworkflowApi.ts` defaults to mock mode so the UI is fully functional without real API credentials. Flip `USE_MOCK = false` when ready for production.
+6. **Mock-first API layer** — `powerflowApi.ts` defaults to mock mode so the UI is fully functional without real API credentials. Flip `USE_MOCK = false` when ready for production.
 
 7. **Email context extraction via hook** — `useEmailContext` abstracts Office.js mailbox API calls into a reusable hook with a test fallback for development outside Outlook.

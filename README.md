@@ -34,19 +34,17 @@ proWorkFlow/
 │   │   ├── commands.html
 │   │   └── commands.ts
 │   └── taskpane/                        # Main task pane UI (React SPA)
-│       ├── index.tsx                    # React entry point
-│       ├── taskpane.html                # HTML shell
-│       ├── taskpane.ts                  # Office.js utilities
+│       ├── index.tsx                    # React entry point (createRoot + FluentProvider)
+│       ├── taskpane.html                # HTML shell with Office.js CDN
+│       ├── taskpane.ts                  # Office.js utility functions
 │       ├── hooks/
 │       │   └── useEmailContext.ts       # Extract email data from Outlook item
 │       ├── services/
 │       │   ├── powerflowApi.ts          # Axios-based ProWorkflow API client (mock + real)
-│       │   └── mockflow.ts             # Mock data for API responses
+│       │   └── mockflow.ts             # Mock data for API responses (stub)
 │       └── components/
-│           ├── App.tsx                  # Root component
+│           ├── App.tsx                  # Root component (assembles Header + CreateTaskForm)
 │           ├── Header.tsx               # Logo & title
-│           ├── HeroList.tsx             # Legacy feature highlight list
-│           ├── TextInsertion.tsx        # Legacy text insertion component
 │           ├── CreateTask/
 │           │   └── CreateTaskForm.tsx   # Full task creation form
 │           └── Layout/
@@ -65,10 +63,10 @@ Detailed documentation for developers and LLMs:
 
 | Document | Audience | Contents |
 |---|---|---|
-| [docs/ARCHITECTURE.md](proWorkFlow/docs/ARCHITECTURE.md) | All | System architecture, component tree, tech stack, boot sequence, manifest structure |
-| [docs/CODE_FLOW.md](proWorkFlow/docs/CODE_FLOW.md) | All | Complete execution paths, data flow diagrams, import/export graph, error handling |
-| [docs/DEBUGGING.md](proWorkFlow/docs/DEBUGGING.md) | Developers | Debug setup, VS Code configs, troubleshooting, available scripts & tasks |
-| [docs/FILE_MAP.md](proWorkFlow/docs/FILE_MAP.md) | LLMs | File-by-file reference with exports, imports, key lines, and dependency graph |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | All | System architecture, component tree, tech stack, boot sequence, manifest structure |
+| [docs/CODE_FLOW.md](docs/CODE_FLOW.md) | All | Complete execution paths, data flow diagrams, import/export graph, error handling |
+| [docs/DEBUGGING.md](docs/DEBUGGING.md) | Developers | Debug setup, VS Code configs, troubleshooting, available scripts & tasks |
+| [docs/FILE_MAP.md](docs/FILE_MAP.md) | LLMs | File-by-file reference with exports, imports, key lines, and dependency graph |
 
 ## Quick Start
 

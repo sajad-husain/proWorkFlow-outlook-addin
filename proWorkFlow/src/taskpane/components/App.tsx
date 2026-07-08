@@ -4,10 +4,6 @@ import Header from "./Header";
 import CreateTaskForm from "./CreateTask/CreateTaskForm";
 import { useEmailContext } from "../hooks/useEmailContext";
 
-export interface AppProps {
-  title: string;
-}
-
 const useStyles = makeStyles({
   root: {
     minHeight: "100vh",
@@ -17,13 +13,13 @@ const useStyles = makeStyles({
   },
 });
 
-const App: React.FC<AppProps> = (props: AppProps) => {
+const App: React.FC = () => {
   const styles = useStyles();
   const { emailData, loading } = useEmailContext();
 
   return (
     <div className={styles.root}>
-      <Header logo="assets/logo-filled.png" title={props.title} />
+      <Header logo="assets/logo-filled.png" />
       <CreateTaskForm emailData={emailData} loading={loading} />
     </div>
   );

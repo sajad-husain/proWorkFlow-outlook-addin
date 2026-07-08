@@ -130,7 +130,7 @@ User clicks "Create task" button
   → Simulates API call (1.5s delay)           [line 200]
       ↓
     (FUTURE: calls proworkflowApi.createTask())
-    📄 services/proworkflowApi.ts
+    📄 services/powerflowApi.ts
       → if USE_MOCK: returns mockTaskCreationResponse  [line 57-61]
       → if !USE_MOCK: axios.post('/tasks', taskData)   [line 63-67]
       ↓
@@ -350,9 +350,9 @@ hooks/useEmailContext.ts
   ├── import { useState, useEffect } from "react"
   └── (uses global Office — no import)
 
-services/proworkflowApi.ts
+services/powerflowApi.ts
   ├── import axios from "axios"
-  └── import { mockProjects, mockAssignees, mockTaskCreationResponse } from "./mockData"
+  └── import { mockProjects, mockAssignees, mockTaskCreationResponse } from "./mockData"  ⚠️ imports ./mockData but file is mockflow.ts
 
 AppLayout.tsx (standalone, not yet used in main flow)
   ├── import { AppBar, Toolbar, Typography, Container, Box,
@@ -393,7 +393,7 @@ commands.ts  ←── separate bundle, no dependency on taskpane
        │     → dispatchToast("Error Creating Task", { intent: "error" })
        │     → User sees error toast notification
        │
-       ├── proworkflowApi fails (services/proworkflowApi.ts)
+       ├── proworkflowApi fails (services/powerflowApi.ts)
        │     → catch(error) { console.error('API Error:', error); throw error; }
        │     → Error propagates to submit handler
        │
@@ -422,7 +422,7 @@ The following are planned enhancements:
 
 ```
 1. Connect real ProWorkflow API:
-   → Set USE_MOCK = false in services/proworkflowApi.ts
+   → Set USE_MOCK = false in services/powerflowApi.ts
    → Add real API credentials
    → Wire up axios calls instead of mock data
 
