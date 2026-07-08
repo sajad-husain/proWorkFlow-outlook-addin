@@ -4,7 +4,7 @@ import { Assignment, EditNote } from "@mui/icons-material";
 
 interface HeaderProps {
   currentTab?: number;
-  onTabChange?: (newValue: number) => void;
+  onTabChange?: (route: number) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ currentTab = 0, onTabChange }) => {
