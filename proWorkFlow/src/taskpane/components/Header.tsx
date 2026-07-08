@@ -3,14 +3,20 @@ import { AppBar, Toolbar, Typography, Tabs, Tab, Box } from "@mui/material";
 import { Assignment, EditNote } from "@mui/icons-material";
 
 interface HeaderProps {
-  currentTab?: number;
-  onTabChange?: (route: number) => void;
+  activeRoute?: "create" | "edit";
+  onRouteChange?: (route: "create" | "edit") => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentTab = 0, onTabChange }) => {
+const Header: React.FC<HeaderProps> = ({ activeRoute = "create", onRouteChange }) => {
+  // Route ko tab index mein convert karein
+  const getTabIndex = (route: "create" | "edit"): number => {
+    return route === "create" ? 0 : 1;
+  };
+
   const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
-    if (onTabChange) {
-      onTabChange(newValue);
+    if (onRouteChange) {
+      const newRoute = newValue === 0 ? "create" : "edit";
+      onRouteChange(newRoute);
     }
   };
 
@@ -26,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({ currentTab = 0, onTabChange }) => {
           </Typography>
         </Box>
         <Tabs
-          value={currentTab}
+          value={getTabIndex(activeRoute)}
           onChange={handleChange}
           sx={{
             bgcolor: "rgba(255,255,255,0.05)",
