@@ -1,12 +1,15 @@
-import * as React from "react";
-import AppRouter from "./Router/AppRouter";
+import React from "react";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { theme } from "../theme/theme";
+import { AppRouter } from "./Router/AppRouter";
 
 const App: React.FC = () => {
   return (
-    <div>
-      <h2>Apps</h2>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AppRouter />
-    </div>
+    </ThemeProvider>
   );
 };
 
