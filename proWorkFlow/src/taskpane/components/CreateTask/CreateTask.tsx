@@ -31,7 +31,13 @@ import {
   Title,
   Cancel,
 } from "@mui/icons-material";
-import { proWorkflowApi, Project, User, CreateTaskRequest } from "../../services/proworkflow";
+import {
+  proWorkflowApi,
+  Project,
+  User,
+  CreateTaskRequest,
+  setApiKey,
+} from "../../services/proworkflow";
 import { getOutlookItemDataAsync, OutlookItemData } from "../../services/outlook";
 
 const CreateTask: React.FC = () => {
@@ -58,6 +64,12 @@ const CreateTask: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
+    const testApiKey = "your-test-api-key-here";
+    if (testApiKey && testApiKey !== "your-test-api-key-here") {
+      setApiKey(testApiKey);
+    } else {
+      setError("Please configure your ProWorkflow API key");
+    }
     loadInitialData();
     loadOutlookData();
   }, []);
