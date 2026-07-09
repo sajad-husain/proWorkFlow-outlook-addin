@@ -16,9 +16,9 @@ import {
   Stack,
   Divider,
   Paper,
-  IconButton,
-  Tooltip,
   InputAdornment,
+  Collapse,
+  IconButton,
 } from "@mui/material";
 import {
   Send,
@@ -30,6 +30,11 @@ import {
   Description,
   Title,
   Cancel,
+  ExpandMore,
+  ExpandLess,
+  Email,
+  Refresh,
+  Download,
 } from "@mui/icons-material";
 import {
   proWorkflowApi,
@@ -38,7 +43,12 @@ import {
   CreateTaskRequest,
   setApiKey,
 } from "../../services/proworkflow";
-import { getOutlookItemDataAsync, OutlookItemData } from "../../services/outlook";
+import {
+  getOutlookItemDataAsync,
+  OutlookItemData,
+  generateTaskDescription,
+  cleanEmailBody,
+} from "../../services/outlook";
 
 const CreateTask: React.FC = () => {
   // Form state
@@ -58,9 +68,11 @@ const CreateTask: React.FC = () => {
   // UI state
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadingOutlook, setLoadingOutlook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [outlookData, setOutlookData] = useState<OutlookItemData | null>(null);
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -93,16 +105,28 @@ const CreateTask: React.FC = () => {
   };
 
   const loadOutlookData = async () => {
+    setLoadingOutlook(true);
     try {
       const data = await getOutlookItemDataAsync();
       setOutlookData(data);
       if (data) {
+        // Auto-fill task name from subject
         setTaskName(data.subject || "");
-        setDescription(data.body || "");
+
+        // Auto-fill description from email
+        const generatedDescription = generateTaskDescription(data);
+        setDescription(generatedDescription);
       }
     } catch (err) {
       console.warn("Could not load Outlook data:", err);
+      setError("Could not load email data. Please ensure you have an email selected.");
+    } finally {
+      setLoadingOutlook(false);
     }
+  };
+
+  const handleRefreshOutlook = () => {
+    loadOutlookData();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,11 +161,8 @@ const CreateTask: React.FC = () => {
       console.log("Task created:", result);
 
       setSuccess(true);
-      // Reset form (optional)
-      // Reset form after success
       setTimeout(() => {
         setSuccess(false);
-        // Don't reset if user wants to keep data
       }, 5000);
     } catch (err: any) {
       setError(err.message || "Failed to create task");
@@ -166,8 +187,15 @@ const CreateTask: React.FC = () => {
     // Reload Outlook data if available
     if (outlookData) {
       setTaskName(outlookData.subject || "");
-      setDescription(outlookData.body || "");
+      const generatedDescription = generateTaskDescription(outlookData);
+      setDescription(generatedDescription);
     }
+  };
+
+  // Helper function for attachments label
+  const getAttachmentsLabel = (): string => {
+    const count = outlookData?.attachments?.length ?? 0;
+    return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
 
   if (loadingData) {
@@ -187,17 +215,92 @@ const CreateTask: React.FC = () => {
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%" }}>
       {/* Header with Outlook info */}
       {outlookData && (
-        <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: "#f8f9fa" }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            bgcolor: "#f8f9fa",
+            border: "1px solid #e0e0e0",
+            borderRadius: 1,
+          }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
+            <Email fontSize="small" color="primary" />
             <Typography variant="caption" color="textSecondary">
               From:
             </Typography>
-            <Chip label={outlookData.sender} size="small" variant="outlined" />
+            <Chip label={outlookData.sender} size="small" variant="outlined" color="primary" />
             <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
               Subject: {outlookData.subject}
             </Typography>
+            <Box sx={{ flex: 1 }} />
+            <IconButton
+              size="small"
+              onClick={handleRefreshOutlook}
+              disabled={loadingOutlook}
+              title="Refresh email data"
+            >
+              <Refresh fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setShowEmailPreview(!showEmailPreview)}
+              title="Toggle email preview"
+            >
+              {showEmailPreview ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
           </Stack>
+
+          {/* Email Preview Collapse */}
+          <Collapse in={showEmailPreview}>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: "block" }}>
+                Email Preview:
+              </Typography>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1,
+                  bgcolor: "white",
+                  maxHeight: "150px",
+                  overflow: "auto",
+                  fontSize: "0.875rem",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {cleanEmailBody(outlookData.body || "No content") || "No content"}
+              </Paper>
+              {outlookData.attachments && outlookData.attachments.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="textSecondary">
+                    Attachments: {outlookData.attachments.map((a) => a.name).join(", ")}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Collapse>
         </Paper>
+      )}
+
+      {!outlookData && !loadingOutlook && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No email selected. Please select an email in Outlook to auto-fill task details.
+          <Button size="small" onClick={handleRefreshOutlook} sx={{ ml: 2 }}>
+            Refresh
+          </Button>
+        </Alert>
+      )}
+
+      {loadingOutlook && (
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <CircularProgress size={20} sx={{ mr: 1 }} />
+          <Typography variant="caption" color="textSecondary">
+            Loading email data...
+          </Typography>
+        </Box>
       )}
 
       {/* Error/Success Alerts */}
@@ -355,14 +458,7 @@ const CreateTask: React.FC = () => {
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <AttachFile fontSize="small" />
                   <Typography variant="body2">
-                    Include email attachments
-                    {(() => {
-                      const count = outlookData?.attachments?.length ?? 0;
-                      if (count > 0) {
-                        return ` (${count} files)`;
-                      }
-                      return " (No attachments found)";
-                    })()}
+                    Include email attachments{getAttachmentsLabel()}
                   </Typography>
                 </Stack>
               }
