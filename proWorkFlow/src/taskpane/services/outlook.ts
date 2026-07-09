@@ -204,7 +204,21 @@ export const getAttachmentContent = async (attachmentId: string): Promise<string
       if (item.getAttachmentContentAsync) {
         item.getAttachmentContentAsync(attachmentId, (result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
-            resolve(result.value);
+            // Ensure we return string, not ArrayBuffer
+            const content = result.value;
+            if (typeof content === 'string') {
+              resolve(content);
+            } else if (content instanceof ArrayBuffer) {
+              // Convert ArrayBuffer to base64 string
+              const bytes = new Uint8Array(content);
+              let binary = '';
+              for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+              }
+              resolve(btoa(binary));
+            } else {
+              resolve(null);
+            }
           } else {
             resolve(null);
           }
