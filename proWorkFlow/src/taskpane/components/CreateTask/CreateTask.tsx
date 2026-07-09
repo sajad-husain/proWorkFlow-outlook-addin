@@ -356,9 +356,13 @@ const CreateTask: React.FC = () => {
                   <AttachFile fontSize="small" />
                   <Typography variant="body2">
                     Include email attachments
-                    {outlookData?.attachments?.length > 0 &&
-                      ` (${outlookData.attachments.length} files)`}
-                    {!outlookData?.attachments?.length && " (No attachments found)"}
+                    {(() => {
+                      const count = outlookData?.attachments?.length ?? 0;
+                      if (count > 0) {
+                        return ` (${count} files)`;
+                      }
+                      return " (No attachments found)";
+                    })()}
                   </Typography>
                 </Stack>
               }
