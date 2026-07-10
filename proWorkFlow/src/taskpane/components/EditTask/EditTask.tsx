@@ -303,7 +303,7 @@ const EditTask: React.FC = () => {
   return (
     <Box sx={{ maxWidth: "100%" }}>
       {/* Header */}
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 3 }}>
         <Assignment color="primary" />
         <Typography variant="h6" sx={{ flex: 1 }}>
           Edit Existing Task
@@ -338,7 +338,7 @@ const EditTask: React.FC = () => {
       )}
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(false)}>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
             <CheckCircle />
             <span>Task updated successfully! ✅</span>
           </Stack>
@@ -369,7 +369,7 @@ const EditTask: React.FC = () => {
           <>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Stack direction="row" spacing={2} alignItems="center">
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                   <Typography variant="subtitle2">Available Tasks ({tasks.length})</Typography>
                   <Box sx={{ flex: 1 }} />
                   {loadingTasks && <CircularProgress size={20} />}
@@ -427,7 +427,11 @@ const EditTask: React.FC = () => {
                         <ListItemText
                           primary={task.name}
                           secondary={
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              sx={{ alignItems: "center", mt: 0.5 }}
+                            >
                               <Chip
                                 label={task.status || "Not Set"}
                                 size="small"
@@ -488,9 +492,9 @@ const EditTask: React.FC = () => {
             <Paper elevation={2} sx={{ p: 3 }}>
               <Stack spacing={3}>
                 {/* Task Info Header */}
-                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <Badge color="primary" variant="dot">
-                    <Typography variant="subtitle1" fontWeight={600}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                       Editing: {originalTask.name}
                     </Typography>
                   </Badge>
@@ -622,7 +626,7 @@ const EditTask: React.FC = () => {
                     />
                   }
                   label={
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
                       <Warning color="error" fontSize="small" />
                       <Typography variant="body2">Mark as Urgent</Typography>
                     </Stack>
@@ -636,11 +640,11 @@ const EditTask: React.FC = () => {
                       variant="caption"
                       color="textSecondary"
                       gutterBottom
-                      display="block"
+                      sx={{ display: "block" }}
                     >
                       Changes will be applied to:
                     </Typography>
-                    <Stack direction="row" spacing={2} flexWrap="wrap">
+                    <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
                       <Chip
                         label={`Original: ${originalTask.name}`}
                         size="small"
