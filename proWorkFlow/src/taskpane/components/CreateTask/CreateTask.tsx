@@ -105,15 +105,34 @@ const CreateTask: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Enter or Cmd+Enter to submit
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (taskName.trim() && projectId) {
+          handleSubmitClick();
+        }
+      }
+      // Escape to reset
+      if (e.key === "Escape" && !showConfirmDialog) {
+        e.preventDefault();
+        setShowConfirmDialog(true);
+        setPendingAction("reset");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
     const testApiKey = "your-test-api-key-here";
     if (testApiKey && testApiKey !== "your-test-api-key-here") {
       setApiKey(testApiKey);
     } else {
       setError("Please configure your ProWorkflow API key");
     }
+
     loadInitialData();
     loadOutlookData();
-  }, []);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [taskName, projectId, showConfirmDialog]);
 
   const loadInitialData = async () => {
     setLoadingData(true);
@@ -246,6 +265,12 @@ const CreateTask: React.FC = () => {
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%" }}>
+      <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <span>⌘+Enter to submit</span>
+          <span>Esc to reset</span>
+        </Stack>
+      </Typography>
       {/* Header with Outlook info */}
       {outlookData && (
         <Paper
