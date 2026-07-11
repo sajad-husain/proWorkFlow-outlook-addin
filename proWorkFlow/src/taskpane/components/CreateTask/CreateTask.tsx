@@ -20,6 +20,11 @@ import {
   Collapse,
   IconButton,
   Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import {
   Send,
@@ -74,6 +79,29 @@ const CreateTask: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [outlookData, setOutlookData] = useState<OutlookItemData | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
+  // Loading Dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"submit" | "reset" | null>(null);
+
+  // Add handlers
+  const handleSubmitClick = () => {
+    if (taskName.trim() && projectId) {
+      setShowConfirmDialog(true);
+      setPendingAction("submit");
+    } else {
+      handleSubmit(new Event("submit") as any);
+    }
+  };
+
+  const handleConfirmAction = () => {
+    setShowConfirmDialog(false);
+    if (pendingAction === "submit") {
+      handleSubmit(new Event("submit") as any);
+    } else if (pendingAction === "reset") {
+      handleReset();
+    }
+    setPendingAction(null);
+  };
 
   // Load initial data
   useEffect(() => {
@@ -491,6 +519,27 @@ const CreateTask: React.FC = () => {
           </Button>
         </Stack>
       </Stack>
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
+        <DialogTitle>Confirm Action</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingAction === "submit"
+              ? "Are you sure you want to create this task?"
+              : "Are you sure you want to reset all form fields?"}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmDialog(false)}>Cancel</Button>
+          <Button
+            onClick={handleConfirmAction}
+            variant="contained"
+            color={pendingAction === "submit" ? "primary" : "error"}
+          >
+            {pendingAction === "submit" ? "Create" : "Reset"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
