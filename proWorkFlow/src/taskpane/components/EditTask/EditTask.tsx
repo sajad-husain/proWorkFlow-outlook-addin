@@ -19,9 +19,7 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
-  Card,
-  CardContent,
-  Grid,
+  Grid2,
   List,
   ListItem,
   ListItemText,
@@ -399,12 +397,16 @@ const EditTask: React.FC = () => {
                     {filteredTasks.map((task) => (
                       <ListItem
                         key={task.id}
-                        button
+                        component="div"
                         selected={selectedTaskId === task.id}
                         onClick={() => handleTaskSelect(task.id)}
                         sx={{
                           borderRadius: 1,
                           mb: 0.5,
+                          cursor: "pointer",
+                          "&:hover": {
+                            bgcolor: "action.hover",
+                          },
                           "&.Mui-selected": {
                             bgcolor: "primary.light",
                             "&:hover": {
@@ -415,7 +417,11 @@ const EditTask: React.FC = () => {
                       >
                         <ListItemIcon>
                           <Avatar
-                            sx={{ width: 32, height: 32, bgcolor: getPriorityColor(task.priority) }}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              bgcolor: getPriorityColor(task.priority || ""),
+                            }}
                           >
                             {task.priority === "High" ? (
                               <PriorityHigh fontSize="small" />
@@ -436,7 +442,7 @@ const EditTask: React.FC = () => {
                                 label={task.status || "Not Set"}
                                 size="small"
                                 sx={{
-                                  bgcolor: getStatusColor(task.status),
+                                  bgcolor: getStatusColor(task.status || ""),
                                   color: "white",
                                   fontSize: "0.6rem",
                                   height: 20,
@@ -457,10 +463,6 @@ const EditTask: React.FC = () => {
                               )}
                             </Stack>
                           }
-                          primaryTypographyProps={{
-                            variant: "body2",
-                            fontWeight: selectedTaskId === task.id ? 600 : 400,
-                          }}
                         />
                         {task.duedate && (
                           <Typography variant="caption" color="textSecondary">
@@ -579,9 +581,9 @@ const EditTask: React.FC = () => {
                   }}
                 />
 
-                {/* Priority & Due Date */}
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                {/* Priority & Due Date - Using Grid2 */}
+                <Grid2 container spacing={2}>
+                  <Grid2 size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth>
                       <InputLabel>Priority</InputLabel>
                       <Select
@@ -595,8 +597,8 @@ const EditTask: React.FC = () => {
                         <MenuItem value="High">High</MenuItem>
                       </Select>
                     </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                  </Grid2>
+                  <Grid2 size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       type="date"
@@ -613,8 +615,8 @@ const EditTask: React.FC = () => {
                         },
                       }}
                     />
-                  </Grid>
-                </Grid>
+                  </Grid2>
+                </Grid2>
 
                 {/* Urgent Checkbox */}
                 <FormControlLabel
