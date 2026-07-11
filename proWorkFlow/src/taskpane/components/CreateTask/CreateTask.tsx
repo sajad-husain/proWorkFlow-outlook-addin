@@ -19,6 +19,7 @@ import {
   InputAdornment,
   Collapse,
   IconButton,
+  Skeleton,
 } from "@mui/material";
 import {
   Send,
@@ -200,13 +201,17 @@ const CreateTask: React.FC = () => {
 
   if (loadingData) {
     return (
-      <Box
-        sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "300px" }}
-      >
-        <CircularProgress />
-        <Typography variant="body2" sx={{ ml: 2 }}>
-          Loading data...
-        </Typography>
+      <Box sx={{ p: 2 }}>
+        <Stack spacing={3}>
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={100} animation="wave" />
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={80} animation="wave" />
+          <Skeleton variant="rectangular" height={40} animation="wave" />
+        </Stack>
       </Box>
     );
   }
