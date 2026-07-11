@@ -19,13 +19,14 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
-  Grid2,
+  Grid,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
   Avatar,
   Badge,
+  ListItemButton,
 } from "@mui/material";
 import {
   Edit,
@@ -391,84 +392,83 @@ const EditTask: React.FC = () => {
                   }}
                 />
 
-                {/* Task List */}
+                {/* Task List - Using ListItemButton instead of ListItem */}
                 {!loadingTasks && filteredTasks.length > 0 ? (
                   <List sx={{ maxHeight: "200px", overflow: "auto", bgcolor: "background.paper" }}>
                     {filteredTasks.map((task) => (
-                      <ListItem
-                        key={task.id}
-                        component="div"
-                        selected={selectedTaskId === task.id}
-                        onClick={() => handleTaskSelect(task.id)}
-                        sx={{
-                          borderRadius: 1,
-                          mb: 0.5,
-                          cursor: "pointer",
-                          "&:hover": {
-                            bgcolor: "action.hover",
-                          },
-                          "&.Mui-selected": {
-                            bgcolor: "primary.light",
-                            "&:hover": {
+                      <ListItem key={task.id} disablePadding>
+                        <ListItemButton
+                          selected={selectedTaskId === task.id}
+                          onClick={() => handleTaskSelect(task.id)}
+                          sx={{
+                            borderRadius: 1,
+                            mb: 0.5,
+                            "&.Mui-selected": {
                               bgcolor: "primary.light",
+                              "&:hover": {
+                                bgcolor: "primary.light",
+                              },
                             },
-                          },
-                        }}
-                      >
-                        <ListItemIcon>
-                          <Avatar
-                            sx={{
-                              width: 32,
-                              height: 32,
-                              bgcolor: getPriorityColor(task.priority || ""),
-                            }}
-                          >
-                            {task.priority === "High" ? (
-                              <PriorityHigh fontSize="small" />
-                            ) : (
-                              <TaskAlt fontSize="small" />
-                            )}
-                          </Avatar>
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={task.name}
-                          secondary={
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              sx={{ alignItems: "center", mt: 0.5 }}
+                            "&:hover": {
+                              bgcolor: "action.hover",
+                            },
+                          }}
+                        >
+                          <ListItemIcon>
+                            <Avatar
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                bgcolor: getPriorityColor(task.priority || ""),
+                              }}
                             >
-                              <Chip
-                                label={task.status || "Not Set"}
-                                size="small"
-                                sx={{
-                                  bgcolor: getStatusColor(task.status || ""),
-                                  color: "white",
-                                  fontSize: "0.6rem",
-                                  height: 20,
-                                }}
-                              />
-                              {task.urgent && (
+                              {task.priority === "High" ? (
+                                <PriorityHigh fontSize="small" />
+                              ) : (
+                                <TaskAlt fontSize="small" />
+                              )}
+                            </Avatar>
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={task.name}
+                            secondary={
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                sx={{ alignItems: "center", mt: 0.5 }}
+                              >
                                 <Chip
-                                  label="Urgent"
+                                  label={task.status || "Not Set"}
                                   size="small"
-                                  color="error"
-                                  sx={{ fontSize: "0.6rem", height: 20 }}
+                                  sx={{
+                                    bgcolor: getStatusColor(task.status || ""),
+                                    color: "white",
+                                    fontSize: "0.6rem",
+                                    height: 20,
+                                  }}
                                 />
-                              )}
-                              {task.assignee && (
-                                <Typography variant="caption" color="textSecondary">
-                                  Assigned to: {getUserName(task.assignee)}
-                                </Typography>
-                              )}
-                            </Stack>
-                          }
-                        />
-                        {task.duedate && (
-                          <Typography variant="caption" color="textSecondary">
-                            Due: {task.duedate}
-                          </Typography>
-                        )}
+                                {task.urgent && (
+                                  <Chip
+                                    label="Urgent"
+                                    size="small"
+                                    color="error"
+                                    sx={{ fontSize: "0.6rem", height: 20 }}
+                                  />
+                                )}
+                                {task.assignee && (
+                                  <Typography variant="caption" color="textSecondary">
+                                    Assigned to: {getUserName(task.assignee)}
+                                  </Typography>
+                                )}
+                              </Stack>
+                            }
+                          />
+                          {task.duedate && (
+                            <Typography variant="caption" color="textSecondary" sx={{ mr: 1 }}>
+                              Due: {task.duedate}
+                            </Typography>
+                          )}
+                        </ListItemButton>
                       </ListItem>
                     ))}
                   </List>
@@ -581,9 +581,9 @@ const EditTask: React.FC = () => {
                   }}
                 />
 
-                {/* Priority & Due Date - Using Grid2 */}
-                <Grid2 container spacing={2}>
-                  <Grid2 size={{ xs: 12, sm: 6 }}>
+                {/* Priority & Due Date */}
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth>
                       <InputLabel>Priority</InputLabel>
                       <Select
@@ -597,8 +597,8 @@ const EditTask: React.FC = () => {
                         <MenuItem value="High">High</MenuItem>
                       </Select>
                     </FormControl>
-                  </Grid2>
-                  <Grid2 size={{ xs: 12, sm: 6 }}>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       type="date"
@@ -615,8 +615,8 @@ const EditTask: React.FC = () => {
                         },
                       }}
                     />
-                  </Grid2>
-                </Grid2>
+                  </Grid>
+                </Grid>
 
                 {/* Urgent Checkbox */}
                 <FormControlLabel
