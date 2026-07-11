@@ -19,12 +19,14 @@ import {
   InputAdornment,
   Collapse,
   IconButton,
+  Tooltip,
   Skeleton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
+  Snackbar,
 } from "@mui/material";
 import {
   Send,
@@ -40,7 +42,8 @@ import {
   ExpandLess,
   Email,
   Refresh,
-  Download,
+  CheckCircle,
+  Warning,
 } from "@mui/icons-material";
 import {
   proWorkflowApi,
@@ -55,6 +58,18 @@ import {
   generateTaskDescription,
   cleanEmailBody,
 } from "../../services/outlook";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+
+interface DraftData {
+  taskName: string;
+  projectId: number;
+  assigneeId: number;
+  description: string;
+  priority: "Low" | "Medium" | "High";
+  dueDate: string;
+  isUrgent: boolean;
+  includeAttachments: boolean;
+}
 
 const CreateTask: React.FC = () => {
   // Form state
@@ -79,60 +94,68 @@ const CreateTask: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [outlookData, setOutlookData] = useState<OutlookItemData | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
-  // Loading Dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<"submit" | "reset" | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastSeverity, setToastSeverity] = useState<"success" | "error" | "info" | "warning">(
+    "info"
+  );
 
-  // Add handlers
-  const handleSubmitClick = () => {
-    if (taskName.trim() && projectId) {
-      setShowConfirmDialog(true);
-      setPendingAction("submit");
-    } else {
-      handleSubmit(new Event("submit") as any);
-    }
-  };
-
-  const handleConfirmAction = () => {
-    setShowConfirmDialog(false);
-    if (pendingAction === "submit") {
-      handleSubmit(new Event("submit") as any);
-    } else if (pendingAction === "reset") {
-      handleReset();
-    }
-    setPendingAction(null);
-  };
+  // Auto-save draft
+  const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
   // Load initial data
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Enter or Cmd+Enter to submit
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        if (taskName.trim() && projectId) {
-          handleSubmitClick();
-        }
-      }
-      // Escape to reset
-      if (e.key === "Escape" && !showConfirmDialog) {
-        e.preventDefault();
-        setShowConfirmDialog(true);
-        setPendingAction("reset");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
     const testApiKey = "your-test-api-key-here";
     if (testApiKey && testApiKey !== "your-test-api-key-here") {
       setApiKey(testApiKey);
     } else {
       setError("Please configure your ProWorkflow API key");
     }
-
     loadInitialData();
     loadOutlookData();
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [taskName, projectId, showConfirmDialog]);
+    loadDraft();
+  }, []);
+
+  // Auto-save draft on form change
+  useEffect(() => {
+    if (taskName || description || projectId || assigneeId) {
+      const draftData: DraftData = {
+        taskName,
+        projectId,
+        assigneeId,
+        description,
+        priority,
+        dueDate,
+        isUrgent,
+        includeAttachments,
+      };
+      setDraft(draftData);
+    }
+  }, [
+    taskName,
+    projectId,
+    assigneeId,
+    description,
+    priority,
+    dueDate,
+    isUrgent,
+    includeAttachments,
+  ]);
+
+  const loadDraft = () => {
+    if (draft) {
+      setTaskName(draft.taskName || "");
+      setProjectId(draft.projectId || 0);
+      setAssigneeId(draft.assigneeId || 0);
+      setDescription(draft.description || "");
+      setPriority(draft.priority || "Medium");
+      setDueDate(draft.dueDate || "");
+      setIsUrgent(draft.isUrgent || false);
+      setIncludeAttachments(draft.includeAttachments || false);
+    }
+  };
 
   const loadInitialData = async () => {
     setLoadingData(true);
@@ -158,16 +181,16 @@ const CreateTask: React.FC = () => {
       const data = await getOutlookItemDataAsync();
       setOutlookData(data);
       if (data) {
-        // Auto-fill task name from subject
-        setTaskName(data.subject || "");
-
-        // Auto-fill description from email
-        const generatedDescription = generateTaskDescription(data);
-        setDescription(generatedDescription);
+        if (!draft || !draft.taskName) {
+          setTaskName(data.subject || "");
+        }
+        if (!draft || !draft.description) {
+          const generatedDescription = generateTaskDescription(data);
+          setDescription(generatedDescription);
+        }
       }
     } catch (err) {
       console.warn("Could not load Outlook data:", err);
-      setError("Could not load email data. Please ensure you have an email selected.");
     } finally {
       setLoadingOutlook(false);
     }
@@ -175,6 +198,46 @@ const CreateTask: React.FC = () => {
 
   const handleRefreshOutlook = () => {
     loadOutlookData();
+    showToast("Email data refreshed", "info");
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (taskName.trim() && projectId) {
+          handleSubmitClick();
+        }
+      }
+      if (e.key === "Escape" && !showConfirmDialog) {
+        e.preventDefault();
+        setShowConfirmDialog(true);
+        setPendingAction("reset");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [taskName, projectId, showConfirmDialog]);
+
+  const handleSubmitClick = () => {
+    if (taskName.trim() && projectId) {
+      setShowConfirmDialog(true);
+      setPendingAction("submit");
+    } else {
+      showToast("Please fill in all required fields", "warning");
+    }
+  };
+
+  const handleConfirmAction = () => {
+    setShowConfirmDialog(false);
+    if (pendingAction === "submit") {
+      handleSubmit(new Event("submit") as any);
+    } else if (pendingAction === "reset") {
+      handleReset();
+    }
+    setPendingAction(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,13 +245,12 @@ const CreateTask: React.FC = () => {
     setError(null);
     setSuccess(false);
 
-    // Validation
     if (!taskName.trim()) {
-      setError("Task name is required");
+      showToast("Task name is required", "error");
       return;
     }
     if (!projectId) {
-      setError("Please select a project");
+      showToast("Please select a project", "error");
       return;
     }
 
@@ -209,11 +271,17 @@ const CreateTask: React.FC = () => {
       console.log("Task created:", result);
 
       setSuccess(true);
+      showToast("Task created successfully! 🎉", "success");
+
+      // Clear draft on success
+      setDraft(null);
+
       setTimeout(() => {
         setSuccess(false);
       }, 5000);
     } catch (err: any) {
       setError(err.message || "Failed to create task");
+      showToast(err.message || "Failed to create task", "error");
       console.error(err);
     } finally {
       setLoading(false);
@@ -231,16 +299,26 @@ const CreateTask: React.FC = () => {
     setIncludeAttachments(false);
     setError(null);
     setSuccess(false);
+    setDraft(null);
 
-    // Reload Outlook data if available
     if (outlookData) {
       setTaskName(outlookData.subject || "");
       const generatedDescription = generateTaskDescription(outlookData);
       setDescription(generatedDescription);
     }
+    showToast("Form reset successfully", "info");
   };
 
-  // Helper function for attachments label
+  const showToast = (message: string, severity: "success" | "error" | "info" | "warning") => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
+  };
+
+  const handleToastClose = () => {
+    setToastOpen(false);
+  };
+
   const getAttachmentsLabel = (): string => {
     const count = outlookData?.attachments?.length ?? 0;
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
@@ -250,11 +328,11 @@ const CreateTask: React.FC = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Stack spacing={3}>
+          <Skeleton variant="rectangular" height={60} animation="wave" />
           <Skeleton variant="rectangular" height={56} animation="wave" />
           <Skeleton variant="rectangular" height={56} animation="wave" />
           <Skeleton variant="rectangular" height={56} animation="wave" />
           <Skeleton variant="rectangular" height={100} animation="wave" />
-          <Skeleton variant="rectangular" height={56} animation="wave" />
           <Skeleton variant="rectangular" height={56} animation="wave" />
           <Skeleton variant="rectangular" height={80} animation="wave" />
           <Skeleton variant="rectangular" height={40} animation="wave" />
@@ -265,12 +343,6 @@ const CreateTask: React.FC = () => {
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%" }}>
-      <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-          <span>⌘+Enter to submit</span>
-          <span>Esc to reset</span>
-        </Stack>
-      </Typography>
       {/* Header with Outlook info */}
       {outlookData && (
         <Paper
@@ -293,21 +365,16 @@ const CreateTask: React.FC = () => {
               Subject: {outlookData.subject}
             </Typography>
             <Box sx={{ flex: 1 }} />
-            <IconButton
-              size="small"
-              onClick={handleRefreshOutlook}
-              disabled={loadingOutlook}
-              title="Refresh email data"
-            >
-              <Refresh fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={() => setShowEmailPreview(!showEmailPreview)}
-              title="Toggle email preview"
-            >
-              {showEmailPreview ? <ExpandLess /> : <ExpandMore />}
-            </IconButton>
+            <Tooltip title="Refresh email data">
+              <IconButton size="small" onClick={handleRefreshOutlook} disabled={loadingOutlook}>
+                <Refresh fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Toggle email preview">
+              <IconButton size="small" onClick={() => setShowEmailPreview(!showEmailPreview)}>
+                {showEmailPreview ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
+            </Tooltip>
           </Stack>
 
           {/* Email Preview Collapse */}
@@ -368,8 +435,15 @@ const CreateTask: React.FC = () => {
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Task created successfully! ✅
+        <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircle />}>
+          Task created successfully! 🎉
+        </Alert>
+      )}
+
+      {/* Draft indicator */}
+      {draft && (
+        <Alert severity="info" sx={{ mb: 2 }} icon={<Warning />}>
+          You have a saved draft. Continue editing or click Reset to clear.
         </Alert>
       )}
 
@@ -524,26 +598,44 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Paper>
 
+        {/* Keyboard shortcuts hint */}
+        <Typography variant="caption" color="textSecondary" sx={{ textAlign: "center" }}>
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{ justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}
+          >
+            <span>⌘+Enter / Ctrl+Enter to submit</span>
+            <span>•</span>
+            <span>Esc to reset</span>
+          </Stack>
+        </Typography>
+
         {/* Action Buttons */}
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
           <Button
             variant="outlined"
-            onClick={handleReset}
+            onClick={() => {
+              setShowConfirmDialog(true);
+              setPendingAction("reset");
+            }}
             disabled={loading}
             startIcon={<Cancel />}
           >
             Reset
           </Button>
           <Button
-            type="submit"
+            type="button"
             variant="contained"
             disabled={loading || !taskName.trim() || !projectId}
             startIcon={loading ? <CircularProgress size={20} /> : <Send />}
+            onClick={handleSubmitClick}
           >
             {loading ? "Creating..." : "Create Task"}
           </Button>
         </Stack>
       </Stack>
+
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Action</DialogTitle>
@@ -551,7 +643,7 @@ const CreateTask: React.FC = () => {
           <DialogContentText>
             {pendingAction === "submit"
               ? "Are you sure you want to create this task?"
-              : "Are you sure you want to reset all form fields?"}
+              : "Are you sure you want to reset all form fields? This will clear your draft."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -565,6 +657,18 @@ const CreateTask: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={4000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={handleToastClose} severity={toastSeverity} variant="filled">
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
