@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   TextField,
@@ -51,6 +51,7 @@ import {
   User,
   CreateTaskRequest,
   setApiKey,
+  getApiKey,
 } from "../../services/proworkflow";
 import {
   getOutlookItemDataAsync,
@@ -101,27 +102,53 @@ const CreateTask: React.FC = () => {
   const [toastSeverity, setToastSeverity] = useState<"success" | "error" | "info" | "warning">(
     "info"
   );
+  const [isApiKeySet, setIsApiKeySet] = useState(false);
 
   // Auto-save draft
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
-  const [apiKey, setApiKeyState] = useState<string>("");
 
-  // Load initial data
+  // Load API key and initial data - Single useEffect
   useEffect(() => {
-    const testApiKey = "your-test-api-key-here";
-    if (testApiKey && testApiKey !== "your-test-api-key-here") {
-      setApiKey(testApiKey);
-    } else {
-      setError("Please configure your ProWorkflow API key");
-    }
-    loadInitialData();
-    loadOutlookData();
-    loadDraft();
+    const initializeApp = async () => {
+      // Try to get API key from localStorage
+      const savedApiKey = localStorage.getItem("proworkflow-api-key");
+
+      if (savedApiKey && savedApiKey.trim()) {
+        // API key exists - set it and load data
+        setApiKey(savedApiKey.trim());
+        setIsApiKeySet(true);
+        setError(null);
+
+        // Load all data in parallel
+        await Promise.all([loadInitialData(), loadOutlookData(), loadDraft()]);
+      } else {
+        // No API key found
+        setIsApiKeySet(false);
+        setError("Please set your ProWorkflow API key");
+        setLoadingData(false);
+      }
+    };
+
+    initializeApp();
   }, []);
+
+  // Load draft data
+  const loadDraft = useCallback(() => {
+    if (draft) {
+      setTaskName(draft.taskName || "");
+      setProjectId(draft.projectId || 0);
+      setAssigneeId(draft.assigneeId || 0);
+      setDescription(draft.description || "");
+      setPriority(draft.priority || "Medium");
+      setDueDate(draft.dueDate || "");
+      setIsUrgent(draft.isUrgent || false);
+      setIncludeAttachments(draft.includeAttachments || false);
+    }
+  }, [draft]);
 
   // Auto-save draft on form change
   useEffect(() => {
-    if (taskName || description || projectId || assigneeId) {
+    if (isApiKeySet && (taskName || description || projectId || assigneeId)) {
       const draftData: DraftData = {
         taskName,
         projectId,
@@ -135,6 +162,7 @@ const CreateTask: React.FC = () => {
       setDraft(draftData);
     }
   }, [
+    isApiKeySet,
     taskName,
     projectId,
     assigneeId,
@@ -143,20 +171,8 @@ const CreateTask: React.FC = () => {
     dueDate,
     isUrgent,
     includeAttachments,
+    setDraft,
   ]);
-
-  const loadDraft = () => {
-    if (draft) {
-      setTaskName(draft.taskName || "");
-      setProjectId(draft.projectId || 0);
-      setAssigneeId(draft.assigneeId || 0);
-      setDescription(draft.description || "");
-      setPriority(draft.priority || "Medium");
-      setDueDate(draft.dueDate || "");
-      setIsUrgent(draft.isUrgent || false);
-      setIncludeAttachments(draft.includeAttachments || false);
-    }
-  };
 
   const loadInitialData = async () => {
     setLoadingData(true);
@@ -168,8 +184,9 @@ const CreateTask: React.FC = () => {
       ]);
       setProjects(projectsData);
       setUsers(usersData);
-    } catch (err) {
-      setError("Failed to load data. Please check your API key.");
+    } catch (err: any) {
+      const errorMsg = err.message || "Failed to load data. Please check your API key.";
+      setError(errorMsg);
       console.error(err);
     } finally {
       setLoadingData(false);
@@ -200,6 +217,23 @@ const CreateTask: React.FC = () => {
   const handleRefreshOutlook = () => {
     loadOutlookData();
     showToast("Email data refreshed", "info");
+  };
+
+  // API Key setup function
+  const handleApiKeySubmit = (key: string) => {
+    if (key && key.trim()) {
+      localStorage.setItem("proworkflow-api-key", key.trim());
+      setApiKey(key.trim());
+      setIsApiKeySet(true);
+      setError(null);
+
+      // Reload data with new API key
+      Promise.all([loadInitialData(), loadOutlookData(), loadDraft()]);
+
+      showToast("API key verified successfully! 🎉", "success");
+    } else {
+      showToast("Please enter a valid API key", "error");
+    }
   };
 
   // Keyboard shortcuts
@@ -324,6 +358,50 @@ const CreateTask: React.FC = () => {
     const count = outlookData?.attachments?.length ?? 0;
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
+
+  // Show API Key Setup if no API key
+  if (!isApiKeySet && !loadingData) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Paper sx={{ p: 4, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            🔑 ProWorkflow API Key Required
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            Please enter your ProWorkflow API key to connect the add-in.
+          </Typography>
+          <TextField
+            fullWidth
+            label="API Key"
+            placeholder="Enter your API key (e.g., EIOM-ZTAY-VAD8-D2Y4-PWFO9JJ-AS11627)"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleApiKeySubmit((e.target as HTMLInputElement).value);
+              }
+            }}
+            sx={{ mb: 2 }}
+          />
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={(e) => {
+              const input = e.currentTarget.parentElement?.querySelector(
+                "input"
+              ) as HTMLInputElement;
+              handleApiKeySubmit(input?.value || "");
+            }}
+          >
+            Verify & Connect
+          </Button>
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+        </Paper>
+      </Box>
+    );
+  }
 
   if (loadingData) {
     return (
