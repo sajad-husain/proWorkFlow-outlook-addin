@@ -116,6 +116,7 @@ const CreateTask: React.FC = () => {
   useEffect(() => {
     const initializeApp = async () => {
       const savedApiKey = localStorage.getItem("proworkflow-api-key");
+      console.log("Saved API Key:", savedApiKey); // ✅ Add this
 
       if (savedApiKey && savedApiKey.trim()) {
         setApiKey(savedApiKey.trim());
