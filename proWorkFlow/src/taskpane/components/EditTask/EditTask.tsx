@@ -50,7 +50,7 @@ import {
   Info,
   Assignment,
 } from "@mui/icons-material";
-import { editTaskService, mockTasks, mockUsers, mockProjects } from "../../services/editTask";
+import { editTaskService } from "../../services/editTask";
 import { Project, User, Task } from "../../services/proworkflow";
 
 // Helper function to get status color

@@ -104,6 +104,7 @@ const CreateTask: React.FC = () => {
 
   // Auto-save draft
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
+  const [apiKey, setApiKeyState] = useState<string>("");
 
   // Load initial data
   useEffect(() => {
