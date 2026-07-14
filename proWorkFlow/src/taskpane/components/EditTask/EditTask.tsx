@@ -57,12 +57,14 @@ import {
   Info,
   Assignment,
   Event,
-  PersonOutline,
+  PersonOutlined,
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
 
 // Helper function to get status color
-const getStatusColor = (status: string): string => {
+
+// Helper function to get status color - with null/undefined handling
+const getStatusColor = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
     case "completed":
@@ -80,7 +82,8 @@ const getStatusColor = (status: string): string => {
   }
 };
 
-const getStatusLabel = (status: string): string => {
+// Helper function to get status label - with null/undefined handling
+const getStatusLabel = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
     case "completed":
@@ -98,7 +101,8 @@ const getStatusLabel = (status: string): string => {
   }
 };
 
-const getPriorityColor = (priority: string): string => {
+// Helper function to get priority color - with null/undefined handling
+const getPriorityColor = (priority?: string): string => {
   switch (priority?.toLowerCase()) {
     case "high":
       return "#f44336";
@@ -111,7 +115,8 @@ const getPriorityColor = (priority: string): string => {
   }
 };
 
-const getPriorityLabel = (priority: string): string => {
+// Helper function to get priority label - with null/undefined handling
+const getPriorityLabel = (priority?: string): string => {
   switch (priority?.toLowerCase()) {
     case "high":
       return "High";
@@ -522,7 +527,7 @@ const EditTask: React.FC = () => {
                       onClick={() => handleTaskSelect(task.id)}
                     >
                       <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                        <Stack direction="row" spacing={2} alignItems="center">
+                        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                           <Avatar
                             sx={{
                               width: 36,
