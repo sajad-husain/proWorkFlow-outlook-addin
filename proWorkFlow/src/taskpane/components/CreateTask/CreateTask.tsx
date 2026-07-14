@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   TextField,
@@ -27,7 +27,6 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
-  Autocomplete,
 } from "@mui/material";
 import {
   Send,
@@ -45,8 +44,7 @@ import {
   Refresh,
   CheckCircle,
   Warning,
-  Business,
-  People,
+  Key as KeyIcon,
 } from "@mui/icons-material";
 import {
   proWorkflowApi,
@@ -108,15 +106,86 @@ const CreateTask: React.FC = () => {
   );
   const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const isInitialized = useRef(false);
 
   // Auto-save draft
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
-  // Load API key and initial data
+  // Load Outlook data - defined first so it can be used in loadAllData
+  const loadOutlookDataInternal = useCallback(async () => {
+    setLoadingOutlook(true);
+    try {
+      const data = await getOutlookItemDataAsync();
+      setOutlookData(data);
+      if (data) {
+        if (!draft?.taskName) {
+          setTaskName(data.subject || "");
+        }
+        if (!draft?.description) {
+          const generatedDescription = generateTaskDescription(data);
+          setDescription(generatedDescription);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load Outlook data:", err);
+    } finally {
+      setLoadingOutlook(false);
+    }
+  }, [draft]);
+
+  // Load draft
+  const loadDraftInternal = useCallback(() => {
+    if (draft) {
+      setTaskName(draft.taskName || "");
+      setProjectId(draft.projectId || 0);
+      setAssigneeId(draft.assigneeId || 0);
+      setDescription(draft.description || "");
+      setPriority(draft.priority || "Medium");
+      setDueDate(draft.dueDate || "");
+      setIsUrgent(draft.isUrgent || false);
+      setIncludeAttachments(draft.includeAttachments || false);
+    }
+  }, [draft]);
+
+  // Load all data
+  const loadAllData = useCallback(async () => {
+    setLoadingData(true);
+    setError(null);
+    try {
+      setLoadingProjects(true);
+      setLoadingUsers(true);
+
+      const [projectsData, usersData] = await Promise.all([
+        proWorkflowApi.getProjects(),
+        proWorkflowApi.getUsers(),
+      ]);
+
+      setProjects(projectsData);
+      setUsers(usersData);
+      setLoadingProjects(false);
+      setLoadingUsers(false);
+
+      await loadOutlookDataInternal();
+      loadDraftInternal();
+    } catch (err: any) {
+      const errorMsg = err.message || "Failed to load data. Please check your API key.";
+      setError(errorMsg);
+      console.error(err);
+      setLoadingProjects(false);
+      setLoadingUsers(false);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [loadOutlookDataInternal, loadDraftInternal]);
+
+  // Initialize app - runs only once
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     const initializeApp = async () => {
       const savedApiKey = localStorage.getItem("proworkflow-api-key");
-      console.log("Saved API Key:", savedApiKey); // ✅ Add this
+      console.log("Saved API Key:", savedApiKey);
 
       if (savedApiKey && savedApiKey.trim()) {
         setApiKey(savedApiKey.trim());
@@ -130,99 +199,29 @@ const CreateTask: React.FC = () => {
     };
 
     initializeApp();
-  }, []);
+  }, [loadAllData]);
 
-  // Load all data
-  const loadAllData = async () => {
-    setLoadingData(true);
-    setError(null);
-    try {
-      await Promise.all([loadProjects(), loadUsers(), loadOutlookData()]);
-      loadDraft();
-    } catch (err: any) {
-      const errorMsg = err.message || "Failed to load data. Please check your API key.";
-      setError(errorMsg);
-      console.error(err);
-    } finally {
-      setLoadingData(false);
-    }
-  };
+  // Auto-save draft on form change - with debounce
+  useEffect((): void | (() => void) => {
+    if (!isApiKeySet) return;
 
-  const loadProjects = async () => {
-    setLoadingProjects(true);
-    try {
-      const projectsData = await proWorkflowApi.getProjects();
-      setProjects(projectsData);
-    } catch (err) {
-      console.error("Error loading projects:", err);
-      throw err;
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
-
-  const loadUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const usersData = await proWorkflowApi.getUsers();
-      setUsers(usersData);
-    } catch (err) {
-      console.error("Error loading users:", err);
-      throw err;
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const loadOutlookData = async () => {
-    setLoadingOutlook(true);
-    try {
-      const data = await getOutlookItemDataAsync();
-      setOutlookData(data);
-      if (data) {
-        if (!draft || !draft.taskName) {
-          setTaskName(data.subject || "");
-        }
-        if (!draft || !draft.description) {
-          const generatedDescription = generateTaskDescription(data);
-          setDescription(generatedDescription);
-        }
+    const timeoutId = setTimeout(() => {
+      if (taskName || description || projectId || assigneeId) {
+        const draftData: DraftData = {
+          taskName,
+          projectId,
+          assigneeId,
+          description,
+          priority,
+          dueDate,
+          isUrgent,
+          includeAttachments,
+        };
+        setDraft(draftData);
       }
-    } catch (err) {
-      console.warn("Could not load Outlook data:", err);
-    } finally {
-      setLoadingOutlook(false);
-    }
-  };
+    }, 500);
 
-  const loadDraft = () => {
-    if (draft) {
-      setTaskName(draft.taskName || "");
-      setProjectId(draft.projectId || 0);
-      setAssigneeId(draft.assigneeId || 0);
-      setDescription(draft.description || "");
-      setPriority(draft.priority || "Medium");
-      setDueDate(draft.dueDate || "");
-      setIsUrgent(draft.isUrgent || false);
-      setIncludeAttachments(draft.includeAttachments || false);
-    }
-  };
-
-  // Auto-save draft on form change
-  useEffect(() => {
-    if (isApiKeySet && (taskName || description || projectId || assigneeId)) {
-      const draftData: DraftData = {
-        taskName,
-        projectId,
-        assigneeId,
-        description,
-        priority,
-        dueDate,
-        isUrgent,
-        includeAttachments,
-      };
-      setDraft(draftData);
-    }
+    return () => clearTimeout(timeoutId);
   }, [
     isApiKeySet,
     taskName,
@@ -237,7 +236,7 @@ const CreateTask: React.FC = () => {
   ]);
 
   const handleRefreshOutlook = () => {
-    loadOutlookData();
+    loadOutlookDataInternal();
     showToast("Email data refreshed", "info");
   };
 
@@ -303,18 +302,22 @@ const CreateTask: React.FC = () => {
   const handleConfirmAction = () => {
     setShowConfirmDialog(false);
     if (pendingAction === "submit") {
-      handleSubmit(new Event("submit") as any);
+      handleSubmit(); // Call without event
     } else if (pendingAction === "reset") {
       handleReset();
     }
     setPendingAction(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.SyntheticEvent) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+
     setError(null);
     setSuccess(false);
 
+    // Validation
     if (!taskName.trim()) {
       showToast("Task name is required", "error");
       return;
@@ -347,7 +350,7 @@ const CreateTask: React.FC = () => {
       // Reset form after success
       setTimeout(() => {
         setSuccess(false);
-        // Optionally clear form
+        // Optional: Reset form fields
         // handleReset();
       }, 5000);
     } catch (err: any) {
@@ -485,7 +488,11 @@ const CreateTask: React.FC = () => {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%" }}>
+    <Box
+      component="form"
+      onSubmit={(e: React.FormEvent) => handleSubmit(e)}
+      sx={{ maxWidth: "100%" }}
+    >
       {/* Header with Outlook info */}
       {outlookData && (
         <Paper
@@ -609,7 +616,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Project - Enhanced with loading state */}
+        {/* Project */}
         <FormControl fullWidth required>
           <InputLabel>Project</InputLabel>
           <Select
@@ -634,7 +641,7 @@ const CreateTask: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Assignee - Enhanced with loading state */}
+        {/* Assignee */}
         <FormControl fullWidth>
           <InputLabel>Assignee</InputLabel>
           <Select
@@ -828,8 +835,5 @@ const CreateTask: React.FC = () => {
     </Box>
   );
 };
-
-// Missing import
-import { Key as KeyIcon } from "@mui/icons-material";
 
 export default CreateTask;
