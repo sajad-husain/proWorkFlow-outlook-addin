@@ -27,6 +27,7 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
+  Autocomplete,
 } from "@mui/material";
 import {
   Send,
@@ -44,6 +45,8 @@ import {
   Refresh,
   CheckCircle,
   Warning,
+  Business,
+  People,
 } from "@mui/icons-material";
 import {
   proWorkflowApi,
@@ -51,7 +54,6 @@ import {
   User,
   CreateTaskRequest,
   setApiKey,
-  getApiKey,
 } from "../../services/proworkflow";
 import {
   getOutlookItemDataAsync,
@@ -86,6 +88,8 @@ const CreateTask: React.FC = () => {
   // Data state
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -103,28 +107,23 @@ const CreateTask: React.FC = () => {
     "info"
   );
   const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
 
   // Auto-save draft
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
-  // Load API key and initial data - Single useEffect
+  // Load API key and initial data
   useEffect(() => {
     const initializeApp = async () => {
-      // Try to get API key from localStorage
       const savedApiKey = localStorage.getItem("proworkflow-api-key");
 
       if (savedApiKey && savedApiKey.trim()) {
-        // API key exists - set it and load data
         setApiKey(savedApiKey.trim());
         setIsApiKeySet(true);
         setError(null);
-
-        // Load all data in parallel
-        await Promise.all([loadInitialData(), loadOutlookData(), loadDraft()]);
+        await loadAllData();
       } else {
-        // No API key found
         setIsApiKeySet(false);
-        setError("Please set your ProWorkflow API key");
         setLoadingData(false);
       }
     };
@@ -132,8 +131,70 @@ const CreateTask: React.FC = () => {
     initializeApp();
   }, []);
 
-  // Load draft data
-  const loadDraft = useCallback(() => {
+  // Load all data
+  const loadAllData = async () => {
+    setLoadingData(true);
+    setError(null);
+    try {
+      await Promise.all([loadProjects(), loadUsers(), loadOutlookData()]);
+      loadDraft();
+    } catch (err: any) {
+      const errorMsg = err.message || "Failed to load data. Please check your API key.";
+      setError(errorMsg);
+      console.error(err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const projectsData = await proWorkflowApi.getProjects();
+      setProjects(projectsData);
+    } catch (err) {
+      console.error("Error loading projects:", err);
+      throw err;
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const usersData = await proWorkflowApi.getUsers();
+      setUsers(usersData);
+    } catch (err) {
+      console.error("Error loading users:", err);
+      throw err;
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const loadOutlookData = async () => {
+    setLoadingOutlook(true);
+    try {
+      const data = await getOutlookItemDataAsync();
+      setOutlookData(data);
+      if (data) {
+        if (!draft || !draft.taskName) {
+          setTaskName(data.subject || "");
+        }
+        if (!draft || !draft.description) {
+          const generatedDescription = generateTaskDescription(data);
+          setDescription(generatedDescription);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load Outlook data:", err);
+    } finally {
+      setLoadingOutlook(false);
+    }
+  };
+
+  const loadDraft = () => {
     if (draft) {
       setTaskName(draft.taskName || "");
       setProjectId(draft.projectId || 0);
@@ -144,7 +205,7 @@ const CreateTask: React.FC = () => {
       setIsUrgent(draft.isUrgent || false);
       setIncludeAttachments(draft.includeAttachments || false);
     }
-  }, [draft]);
+  };
 
   // Auto-save draft on form change
   useEffect(() => {
@@ -174,65 +235,38 @@ const CreateTask: React.FC = () => {
     setDraft,
   ]);
 
-  const loadInitialData = async () => {
-    setLoadingData(true);
-    setError(null);
-    try {
-      const [projectsData, usersData] = await Promise.all([
-        proWorkflowApi.getProjects(),
-        proWorkflowApi.getUsers(),
-      ]);
-      setProjects(projectsData);
-      setUsers(usersData);
-    } catch (err: any) {
-      const errorMsg = err.message || "Failed to load data. Please check your API key.";
-      setError(errorMsg);
-      console.error(err);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  const loadOutlookData = async () => {
-    setLoadingOutlook(true);
-    try {
-      const data = await getOutlookItemDataAsync();
-      setOutlookData(data);
-      if (data) {
-        if (!draft || !draft.taskName) {
-          setTaskName(data.subject || "");
-        }
-        if (!draft || !draft.description) {
-          const generatedDescription = generateTaskDescription(data);
-          setDescription(generatedDescription);
-        }
-      }
-    } catch (err) {
-      console.warn("Could not load Outlook data:", err);
-    } finally {
-      setLoadingOutlook(false);
-    }
-  };
-
   const handleRefreshOutlook = () => {
     loadOutlookData();
     showToast("Email data refreshed", "info");
   };
 
-  // API Key setup function
-  const handleApiKeySubmit = (key: string) => {
-    if (key && key.trim()) {
-      localStorage.setItem("proworkflow-api-key", key.trim());
-      setApiKey(key.trim());
-      setIsApiKeySet(true);
-      setError(null);
-
-      // Reload data with new API key
-      Promise.all([loadInitialData(), loadOutlookData(), loadDraft()]);
-
-      showToast("API key verified successfully! 🎉", "success");
-    } else {
+  // API Key setup
+  const handleApiKeySubmit = async () => {
+    if (!apiKeyInput || !apiKeyInput.trim()) {
       showToast("Please enter a valid API key", "error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setApiKey(apiKeyInput.trim());
+      const isValid = await proWorkflowApi.testApiKey(apiKeyInput.trim());
+
+      if (isValid) {
+        localStorage.setItem("proworkflow-api-key", apiKeyInput.trim());
+        setIsApiKeySet(true);
+        setError(null);
+        await loadAllData();
+        showToast("API key verified successfully! 🎉", "success");
+      } else {
+        setError("Invalid API key. Please check and try again.");
+        showToast("Invalid API key", "error");
+      }
+    } catch (err) {
+      setError("Failed to verify API key. Please try again.");
+      showToast("Failed to verify API key", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -307,12 +341,13 @@ const CreateTask: React.FC = () => {
 
       setSuccess(true);
       showToast("Task created successfully! 🎉", "success");
-
-      // Clear draft on success
       setDraft(null);
 
+      // Reset form after success
       setTimeout(() => {
         setSuccess(false);
+        // Optionally clear form
+        // handleReset();
       }, 5000);
     } catch (err: any) {
       setError(err.message || "Failed to create task");
@@ -359,45 +394,73 @@ const CreateTask: React.FC = () => {
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
 
-  // Show API Key Setup if no API key
+  // Show API Key Setup
   if (!isApiKeySet && !loadingData) {
     return (
       <Box sx={{ p: 3 }}>
         <Paper sx={{ p: 4, textAlign: "center" }}>
-          <Typography variant="h6" gutterBottom>
-            🔑 ProWorkflow API Key Required
+          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
+            🔑 ProWorkflow API Key
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-            Please enter your ProWorkflow API key to connect the add-in.
+            Please enter your ProWorkflow API key to connect the add-in. You can find it in your
+            ProWorkflow account settings.
           </Typography>
-          <TextField
-            fullWidth
-            label="API Key"
-            placeholder="Enter your API key (e.g., EIOM-ZTAY-VAD8-D2Y4-PWFO9JJ-AS11627)"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleApiKeySubmit((e.target as HTMLInputElement).value);
-              }
-            }}
-            sx={{ mb: 2 }}
-          />
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={(e) => {
-              const input = e.currentTarget.parentElement?.querySelector(
-                "input"
-              ) as HTMLInputElement;
-              handleApiKeySubmit(input?.value || "");
-            }}
-          >
-            Verify & Connect
-          </Button>
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
+
+          <Box sx={{ maxWidth: 400, mx: "auto" }}>
+            <TextField
+              fullWidth
+              label="API Key"
+              placeholder="e.g., EIOM-ZTAY-VAD8-D2Y4-PWFO9JJ-AS11627"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleApiKeySubmit();
+                }
+              }}
+              sx={{ mb: 2 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <KeyIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={handleApiKeySubmit}
+              disabled={loading || !apiKeyInput.trim()}
+              startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />}
+              size="large"
+            >
+              {loading ? "Verifying..." : "Verify & Connect"}
+            </Button>
+
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+          </Box>
+
+          <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: "#f8f9fa", textAlign: "left" }}>
+            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600 }}>
+              💡 How to get your API key:
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+              1. Log in to your ProWorkflow account
+              <br />
+              2. Go to Settings → API Keys
+              <br />
+              3. Create a new API key or copy existing one
+            </Typography>
+          </Paper>
         </Paper>
       </Box>
     );
@@ -456,7 +519,6 @@ const CreateTask: React.FC = () => {
             </Tooltip>
           </Stack>
 
-          {/* Email Preview Collapse */}
           <Collapse in={showEmailPreview}>
             <Divider sx={{ my: 1 }} />
             <Box sx={{ mt: 1 }}>
@@ -546,14 +608,21 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Project */}
+        {/* Project - Enhanced with loading state */}
         <FormControl fullWidth required>
           <InputLabel>Project</InputLabel>
           <Select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value as number)}
             label="Project"
-            startAdornment={<Folder color="action" sx={{ mr: 1 }} />}
+            disabled={loadingProjects}
+            startAdornment={
+              loadingProjects ? (
+                <CircularProgress size={20} sx={{ ml: 1 }} />
+              ) : (
+                <Folder color="action" sx={{ ml: 1 }} />
+              )
+            }
           >
             <MenuItem value={0}>Select a project...</MenuItem>
             {projects.map((project) => (
@@ -564,14 +633,21 @@ const CreateTask: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Assignee */}
+        {/* Assignee - Enhanced with loading state */}
         <FormControl fullWidth>
           <InputLabel>Assignee</InputLabel>
           <Select
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value as number)}
             label="Assignee"
-            startAdornment={<Person color="action" sx={{ mr: 1 }} />}
+            disabled={loadingUsers}
+            startAdornment={
+              loadingUsers ? (
+                <CircularProgress size={20} sx={{ ml: 1 }} />
+              ) : (
+                <Person color="action" sx={{ ml: 1 }} />
+              )
+            }
           >
             <MenuItem value={0}>Unassigned</MenuItem>
             {users.map((user) => (
@@ -751,5 +827,8 @@ const CreateTask: React.FC = () => {
     </Box>
   );
 };
+
+// Missing import
+import { Key as KeyIcon } from "@mui/icons-material";
 
 export default CreateTask;
