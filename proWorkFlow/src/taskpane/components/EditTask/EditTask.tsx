@@ -27,6 +27,15 @@ import {
   Avatar,
   Badge,
   ListItemButton,
+  Card,
+  CardContent,
+  Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from "@mui/material";
 import {
   Edit,
@@ -44,14 +53,13 @@ import {
   Delete,
   History,
   CheckCircle,
-  Pending,
-  Block,
   Warning,
   Info,
   Assignment,
+  Event,
+  PersonOutline,
 } from "@mui/icons-material";
-import { editTaskService } from "../../services/editTask";
-import { Project, User, Task } from "../../services/proworkflow";
+import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
 
 // Helper function to get status color
 const getStatusColor = (status: string): string => {
@@ -72,7 +80,24 @@ const getStatusColor = (status: string): string => {
   }
 };
 
-// Helper function to get priority color
+const getStatusLabel = (status: string): string => {
+  switch (status?.toLowerCase()) {
+    case "done":
+    case "completed":
+      return "Done";
+    case "in progress":
+      return "In Progress";
+    case "in review":
+      return "In Review";
+    case "not started":
+      return "Not Started";
+    case "blocked":
+      return "Blocked";
+    default:
+      return status || "Not Set";
+  }
+};
+
 const getPriorityColor = (priority: string): string => {
   switch (priority?.toLowerCase()) {
     case "high":
@@ -83,6 +108,19 @@ const getPriorityColor = (priority: string): string => {
       return "#4caf50";
     default:
       return "#9e9e9e";
+  }
+};
+
+const getPriorityLabel = (priority: string): string => {
+  switch (priority?.toLowerCase()) {
+    case "high":
+      return "High";
+    case "medium":
+      return "Medium";
+    case "low":
+      return "Low";
+    default:
+      return priority || "Not Set";
   }
 };
 
@@ -105,17 +143,39 @@ const EditTask: React.FC = () => {
   const [originalTask, setOriginalTask] = useState<Task | null>(null);
 
   // UI state
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastSeverity, setToastSeverity] = useState<"success" | "error" | "info" | "warning">(
+    "info"
+  );
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Load initial data
+  // Load API key and initial data
   useEffect(() => {
-    loadData();
+    const initializeApp = async () => {
+      const savedApiKey = localStorage.getItem("proworkflow-api-key");
+
+      if (savedApiKey && savedApiKey.trim()) {
+        setApiKey(savedApiKey.trim());
+        setIsApiKeySet(true);
+        await loadData();
+      } else {
+        setIsApiKeySet(false);
+        setError("Please set your ProWorkflow API key in the 'New Task' tab");
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
 
   const loadData = async () => {
@@ -123,13 +183,13 @@ const EditTask: React.FC = () => {
     setError(null);
     try {
       const [projectsData, usersData] = await Promise.all([
-        editTaskService.getProjects(),
-        editTaskService.getUsers(),
+        proWorkflowApi.getProjects(),
+        proWorkflowApi.getUsers(),
       ]);
       setProjects(projectsData);
       setUsers(usersData);
-    } catch (err) {
-      setError("Failed to load data");
+    } catch (err: any) {
+      setError(err.message || "Failed to load data");
       console.error(err);
     } finally {
       setLoading(false);
@@ -145,10 +205,8 @@ const EditTask: React.FC = () => {
     setLoadingTasks(true);
     setError(null);
     try {
-      const tasksData = await editTaskService.getTasks(projectId);
+      const tasksData = await proWorkflowApi.getTasks(projectId);
       setTasks(tasksData);
-
-      // Reset selection
       setSelectedTaskId(0);
       setIsEditMode(false);
       resetForm();
@@ -156,8 +214,8 @@ const EditTask: React.FC = () => {
       if (tasksData.length === 0) {
         setError("No tasks found in this project");
       }
-    } catch (err) {
-      setError("Failed to load tasks");
+    } catch (err: any) {
+      setError(err.message || "Failed to load tasks");
       console.error(err);
     } finally {
       setLoadingTasks(false);
@@ -234,25 +292,42 @@ const EditTask: React.FC = () => {
         status: status || undefined,
       };
 
-      const result = await editTaskService.updateTask(selectedTaskId, updatedData);
+      const result = await proWorkflowApi.updateTask(selectedTaskId, updatedData);
       console.log("Task updated:", result);
 
-      // Update local tasks list
       const updatedTasks = tasks.map((task) =>
         task.id === selectedTaskId ? { ...task, ...updatedData } : task
       );
       setTasks(updatedTasks);
-
-      // Update selected task
       setOriginalTask(result);
 
       setSuccess(true);
+      showToast("Task updated successfully! ✅", "success");
       setTimeout(() => setSuccess(false), 5000);
     } catch (err: any) {
       setError(err.message || "Failed to update task");
+      showToast(err.message || "Failed to update task", "error");
       console.error(err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTaskId) return;
+
+    setDeleting(true);
+    try {
+      await proWorkflowApi.deleteTask(selectedTaskId);
+      showToast("Task deleted successfully! 🗑️", "success");
+      await loadTasks(selectedProjectId);
+      setShowDeleteDialog(false);
+      setIsEditMode(false);
+      resetForm();
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete task", "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -271,30 +346,64 @@ const EditTask: React.FC = () => {
     } else {
       loadData();
     }
+    showToast("Data refreshed", "info");
   };
 
-  // Filter tasks by search term
+  const showToast = (message: string, severity: "success" | "error" | "info" | "warning") => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
+  };
+
+  const handleToastClose = () => {
+    setToastOpen(false);
+  };
+
   const filteredTasks = tasks.filter(
     (task) =>
       task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Get user name by id
   const getUserName = (userId: number): string => {
     const user = users.find((u) => u.id === userId);
     return user ? user.name : "Unassigned";
   };
 
+  // Show API Key Setup message
+  if (!isApiKeySet && !loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Paper sx={{ p: 4, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+            🔑 ProWorkflow API Key Required
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            Please set your API key in the <strong>"New Task"</strong> tab first.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const tabs = document.querySelectorAll('[role="tab"]');
+              if (tabs.length > 0) {
+                (tabs[0] as HTMLElement).click();
+              }
+            }}
+          >
+            Go to New Task
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
-      <Box
-        sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "300px" }}
-      >
-        <CircularProgress />
-        <Typography variant="body2" sx={{ ml: 2 }}>
-          Loading data...
-        </Typography>
+      <Box sx={{ p: 2 }}>
+        <Stack spacing={3}>
+          <Skeleton variant="rectangular" height={56} animation="wave" />
+          <Skeleton variant="rectangular" height={200} animation="wave" />
+        </Stack>
       </Box>
     );
   }
@@ -320,18 +429,7 @@ const EditTask: React.FC = () => {
 
       {/* Error/Success Alerts */}
       {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setError(null)}
-          action={
-            error.includes("No tasks") && selectedProjectId ? (
-              <Button color="inherit" size="small" onClick={handleRefresh}>
-                Refresh
-              </Button>
-            ) : undefined
-          }
-        >
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -363,135 +461,155 @@ const EditTask: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Task Selection - Only show when project selected */}
+        {/* Task Selection - Simple List */}
         {selectedProjectId > 0 && (
-          <>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={2}>
-                <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-                  <Typography variant="subtitle2">Available Tasks ({tasks.length})</Typography>
-                  <Box sx={{ flex: 1 }} />
-                  {loadingTasks && <CircularProgress size={20} />}
-                </Stack>
-
-                {/* Search */}
-                <TextField
-                  fullWidth
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "#fafafa" }}>
+            <Stack spacing={2}>
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ alignItems: "center", pb: 1, borderBottom: "1px solid #e0e0e0" }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Available Tasks
+                </Typography>
+                <Chip
+                  label={tasks.length}
                   size="small"
-                  placeholder="Search tasks..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
+                  color="primary"
+                  variant="filled"
+                  sx={{ fontWeight: 600 }}
                 />
-
-                {/* Task List - Using ListItemButton instead of ListItem */}
-                {!loadingTasks && filteredTasks.length > 0 ? (
-                  <List sx={{ maxHeight: "200px", overflow: "auto", bgcolor: "background.paper" }}>
-                    {filteredTasks.map((task) => (
-                      <ListItem key={task.id} disablePadding>
-                        <ListItemButton
-                          selected={selectedTaskId === task.id}
-                          onClick={() => handleTaskSelect(task.id)}
-                          sx={{
-                            borderRadius: 1,
-                            mb: 0.5,
-                            "&.Mui-selected": {
-                              bgcolor: "primary.light",
-                              "&:hover": {
-                                bgcolor: "primary.light",
-                              },
-                            },
-                            "&:hover": {
-                              bgcolor: "action.hover",
-                            },
-                          }}
-                        >
-                          <ListItemIcon>
-                            <Avatar
-                              sx={{
-                                width: 32,
-                                height: 32,
-                                bgcolor: getPriorityColor(task.priority || ""),
-                              }}
-                            >
-                              {task.priority === "High" ? (
-                                <PriorityHigh fontSize="small" />
-                              ) : (
-                                <TaskAlt fontSize="small" />
-                              )}
-                            </Avatar>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={task.name}
-                            secondary={
-                              <Stack
-                                direction="row"
-                                spacing={1}
-                                sx={{ alignItems: "center", mt: 0.5 }}
-                              >
-                                <Chip
-                                  label={task.status || "Not Set"}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: getStatusColor(task.status || ""),
-                                    color: "white",
-                                    fontSize: "0.6rem",
-                                    height: 20,
-                                  }}
-                                />
-                                {task.urgent && (
-                                  <Chip
-                                    label="Urgent"
-                                    size="small"
-                                    color="error"
-                                    sx={{ fontSize: "0.6rem", height: 20 }}
-                                  />
-                                )}
-                                {task.assignee && (
-                                  <Typography variant="caption" color="textSecondary">
-                                    Assigned to: {getUserName(task.assignee)}
-                                  </Typography>
-                                )}
-                              </Stack>
-                            }
-                          />
-                          {task.duedate && (
-                            <Typography variant="caption" color="textSecondary" sx={{ mr: 1 }}>
-                              Due: {task.duedate}
-                            </Typography>
-                          )}
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                ) : (
-                  !loadingTasks && (
-                    <Alert severity="info" icon={<Info />}>
-                      {searchTerm
-                        ? "No tasks match your search"
-                        : "No tasks available in this project"}
-                    </Alert>
-                  )
-                )}
+                <Box sx={{ flex: 1 }} />
+                {loadingTasks && <CircularProgress size={20} />}
               </Stack>
-            </Paper>
-          </>
+
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "white" } }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search fontSize="small" color="action" />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+
+              {!loadingTasks && filteredTasks.length > 0 ? (
+                <Box sx={{ maxHeight: "200px", overflow: "auto" }}>
+                  {filteredTasks.map((task) => (
+                    <Card
+                      key={task.id}
+                      variant="outlined"
+                      sx={{
+                        mb: 1,
+                        cursor: "pointer",
+                        borderColor: selectedTaskId === task.id ? "primary.main" : "#e0e0e0",
+                        bgcolor: selectedTaskId === task.id ? "primary.light" : "white",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          borderColor: "primary.main",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        },
+                      }}
+                      onClick={() => handleTaskSelect(task.id)}
+                    >
+                      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Avatar
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: getPriorityColor(task.priority || ""),
+                              flexShrink: 0,
+                            }}
+                          >
+                            {task.priority === "High" ? (
+                              <PriorityHigh fontSize="small" sx={{ color: "white" }} />
+                            ) : (
+                              <TaskAlt fontSize="small" sx={{ color: "white" }} />
+                            )}
+                          </Avatar>
+
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: selectedTaskId === task.id ? 600 : 500 }}
+                            >
+                              {task.name}
+                            </Typography>
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              sx={{ mt: 0.5, alignItems: "center", flexWrap: "wrap" }}
+                            >
+                              <Chip
+                                label={getStatusLabel(task.status)}
+                                size="small"
+                                sx={{
+                                  bgcolor: getStatusColor(task.status || ""),
+                                  color: "white",
+                                  fontSize: "0.6rem",
+                                  height: 20,
+                                }}
+                              />
+                              {task.urgent && (
+                                <Chip
+                                  label="Urgent"
+                                  size="small"
+                                  color="error"
+                                  sx={{ fontSize: "0.6rem", height: 20 }}
+                                />
+                              )}
+                              {task.assignee && (
+                                <Typography variant="caption" color="textSecondary">
+                                  Assigned to: {getUserName(task.assignee)}
+                                </Typography>
+                              )}
+                              {task.duedate && (
+                                <Typography variant="caption" color="textSecondary">
+                                  Due: {task.duedate}
+                                </Typography>
+                              )}
+                            </Stack>
+                          </Box>
+
+                          {selectedTaskId === task.id && (
+                            <CheckCircle color="primary" sx={{ fontSize: 20, flexShrink: 0 }} />
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              ) : (
+                !loadingTasks && (
+                  <Box sx={{ py: 3, textAlign: "center" }}>
+                    <Info color="action" sx={{ fontSize: 36, opacity: 0.5, mb: 1 }} />
+                    <Typography variant="body2" color="textSecondary">
+                      {searchTerm
+                        ? `No tasks match "${searchTerm}"`
+                        : "No tasks available in this project"}
+                    </Typography>
+                  </Box>
+                )
+              )}
+            </Stack>
+          </Paper>
         )}
 
-        {/* Edit Form - Only show when task selected */}
+        {/* Edit Form - Clean and Simple */}
         {isEditMode && originalTask && (
           <>
             <Divider />
-
-            <Paper elevation={2} sx={{ p: 3 }}>
+            <Paper elevation={1} sx={{ p: 3 }}>
               <Stack spacing={3}>
                 {/* Task Info Header */}
                 <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
@@ -507,6 +625,15 @@ const EditTask: React.FC = () => {
                     size="small"
                     variant="outlined"
                   />
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Delete />}
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    Delete
+                  </Button>
                 </Stack>
 
                 <Divider />
@@ -565,7 +692,7 @@ const EditTask: React.FC = () => {
                 <TextField
                   fullWidth
                   multiline
-                  rows={4}
+                  rows={3}
                   label="Description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -635,41 +762,6 @@ const EditTask: React.FC = () => {
                   }
                 />
 
-                {/* Change Summary */}
-                {originalTask && (
-                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "#f8f9fa" }}>
-                    <Typography
-                      variant="caption"
-                      color="textSecondary"
-                      gutterBottom
-                      sx={{ display: "block" }}
-                    >
-                      Changes will be applied to:
-                    </Typography>
-                    <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
-                      <Chip
-                        label={`Original: ${originalTask.name}`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      {originalTask.status && (
-                        <Chip
-                          label={`Status: ${originalTask.status}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {originalTask.priority && (
-                        <Chip
-                          label={`Priority: ${originalTask.priority}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                  </Paper>
-                )}
-
                 {/* Action Buttons */}
                 <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                   <Button
@@ -701,6 +793,41 @@ const EditTask: React.FC = () => {
           </Alert>
         )}
       </Stack>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
+        <DialogTitle>Delete Task</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete <strong>"{originalTask?.name}"</strong>? This action
+            cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={20} /> : <Delete />}
+          >
+            {deleting ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={4000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={handleToastClose} severity={toastSeverity} variant="filled">
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
