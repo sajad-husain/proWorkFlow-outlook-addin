@@ -1,8 +1,10 @@
 // src/services/proworkflow.ts
+const BASE_URL =
+  (typeof process !== "undefined" && process.env.PW_BASE_URL) ||
+  "https://api.proworkflow.com/api/v4/";
 
-const BASE_URL = process.env.PW_BASE_URL || "https://api.proworkflow.com/api/v4/";
-
-let API_KEY = process.env.PW_API_KEY || "";
+let API_KEY =
+  (typeof process !== "undefined" && process.env.PW_API_KEY) || "";
 
 export const setApiKey = (key: string) => {
   API_KEY = key.trim();
@@ -24,10 +26,11 @@ const apiFetch = async <T>(endpoint: string, options?: RequestInit): Promise<T> 
     },
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
-  }
+if (!response.ok) {
+  const errorText = await response.text();
+  console.error(`❌ API Error (${response.status}):`, errorText); // ✅ yeh log add karein
+  throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
+}
 
   // DELETE returns 204 No Content
   if (response.status === 204) {
@@ -94,7 +97,7 @@ export const proWorkflowApi = {
   },
 
   // Get all projects
-  getProjects: async (): Promise<Project[]> => {
+   getProjects: async (): Promise<Project[]> => {
     const response = await apiFetch<any>("projects");
     const data = response.data || response;
     if (Array.isArray(data)) {
@@ -108,7 +111,7 @@ export const proWorkflowApi = {
 
   // Get all users
   getUsers: async (): Promise<User[]> => {
-    const response = await apiFetch<any>("users");
+    const response = await apiFetch<any>("contacts?fields=all");
     const data = response.data || response;
     return Array.isArray(data) ? data : [];
   },

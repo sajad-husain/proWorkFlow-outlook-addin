@@ -1,3 +1,5 @@
+// src/taskpane/components/EditTask/EditTask.tsx
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
@@ -52,9 +54,8 @@ import {
   Assignment,
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
-import ApiTest from "../ApiTest";
 
-// Helper functions (same as before)
+// Helper functions
 const getStatusColor = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
@@ -131,7 +132,7 @@ const EditTask: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isApiKeySet, setIsApiKeySet] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(""); // ✅ Added missing state
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastSeverity, setToastSeverity] = useState<"success" | "error" | "info" | "warning">(
@@ -141,17 +142,58 @@ const EditTask: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const isInitialized = useRef(false);
 
-  // Load projects and users
+  // 🔥 NEW: Direct fetch for projects (bypassing service)
+  const fetchProjectsDirectly = async (): Promise<Project[]> => {
+    const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
+    if (!API_KEY) {
+      throw new Error("API key is not set.");
+    }
+
+    const url = "https://api.proworkflow.com/api/v4/projects";
+    console.log("🔍 Direct fetch projects from:", url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: API_KEY,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Direct fetch failed:", errorText);
+      throw new Error(`Failed to fetch projects (${response.status}): ${errorText}`);
+    }
+
+    const jsonData = await response.json();
+    console.log("✅ Direct fetch response:", jsonData);
+
+    // Handle both {data: [...]} and direct array
+    const data = jsonData.data || jsonData;
+    if (Array.isArray(data)) {
+      return data.map((p: any) => ({
+        ...p,
+        name: p.name || p.title || "Unnamed Project",
+      }));
+    }
+    return [];
+  };
+
+  // Load projects (direct fetch) and users (via service)
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [projectsData, usersData] = await Promise.all([
-        proWorkflowApi.getProjects(),
-        proWorkflowApi.getUsers(),
-      ]);
+      // 🔥 Projects ko DIRECT fetch karo
+      const projectsData = await fetchProjectsDirectly();
       setProjects(projectsData);
+      console.log(`📦 Loaded ${projectsData.length} projects via direct fetch`);
+
+      // Users ko service se fetch karo (jaise pehle chal raha tha)
+      const usersData = await proWorkflowApi.getUsers();
       setUsers(usersData);
+      console.log(`👤 Loaded ${usersData.length} users via service`);
     } catch (err: any) {
       setError(err.message || "Failed to load data");
       console.error(err);
@@ -166,15 +208,14 @@ const EditTask: React.FC = () => {
     isInitialized.current = true;
 
     const initializeApp = async () => {
-      // 🔥 .env fallback + localStorage priority
-      const defaultKey = process.env.PW_API_KEY || "";
+      const defaultKey = (typeof process !== "undefined" && process.env.PW_API_KEY) || "";
       const savedKey = localStorage.getItem("proworkflow-api-key");
       const finalKey = savedKey && savedKey.trim() ? savedKey.trim() : defaultKey;
 
       if (finalKey) {
         setApiKey(finalKey);
         setIsApiKeySet(true);
-        setApiKeyInput(finalKey); // ✅ Now valid
+        setApiKeyInput(finalKey);
         setError(null);
         await loadData();
       } else {
@@ -184,9 +225,9 @@ const EditTask: React.FC = () => {
     };
 
     initializeApp();
-  }, []); // ✅ Dependency array empty – runs once
+  }, []);
 
-  // Load tasks for a project
+  // Load tasks for a project (via service – unchanged)
   const loadTasks = async (projectId: number) => {
     if (!projectId) {
       setTasks([]);
@@ -819,9 +860,6 @@ const EditTask: React.FC = () => {
           {toastMessage}
         </Alert>
       </Snackbar>
-
-      {/* Optional: ApiTest component for debugging */}
-      <ApiTest />
     </Box>
   );
 };
