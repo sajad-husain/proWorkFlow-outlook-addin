@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -20,13 +20,8 @@ import {
   IconButton,
   Tooltip,
   Grid,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Avatar,
   Badge,
-  ListItemButton,
   Card,
   CardContent,
   Skeleton,
@@ -38,7 +33,6 @@ import {
   Snackbar,
 } from "@mui/material";
 import {
-  Edit,
   Search,
   Refresh,
   Save,
@@ -56,15 +50,11 @@ import {
   Warning,
   Info,
   Assignment,
-  Event,
-  PersonOutlined,
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
 import ApiTest from "../ApiTest";
 
-// Helper function to get status color
-
-// Helper function to get status color - with null/undefined handling
+// Helper functions (same as before)
 const getStatusColor = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
@@ -83,7 +73,6 @@ const getStatusColor = (status?: string): string => {
   }
 };
 
-// Helper function to get status label - with null/undefined handling
 const getStatusLabel = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
@@ -102,7 +91,6 @@ const getStatusLabel = (status?: string): string => {
   }
 };
 
-// Helper function to get priority color - with null/undefined handling
 const getPriorityColor = (priority?: string): string => {
   switch (priority?.toLowerCase()) {
     case "high":
@@ -113,20 +101,6 @@ const getPriorityColor = (priority?: string): string => {
       return "#4caf50";
     default:
       return "#9e9e9e";
-  }
-};
-
-// Helper function to get priority label - with null/undefined handling
-const getPriorityLabel = (priority?: string): string => {
-  switch (priority?.toLowerCase()) {
-    case "high":
-      return "High";
-    case "medium":
-      return "Medium";
-    case "low":
-      return "Low";
-    default:
-      return priority || "Not Set";
   }
 };
 
@@ -157,6 +131,7 @@ const EditTask: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(""); // ✅ Added missing state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastSeverity, setToastSeverity] = useState<"success" | "error" | "info" | "warning">(
@@ -164,27 +139,9 @@ const EditTask: React.FC = () => {
   );
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isInitialized = useRef(false);
 
-  // Load API key and initial data
-  useEffect(() => {
-    const initializeApp = async () => {
-      const savedApiKey = localStorage.getItem("proworkflow-api-key");
-      console.log("Edit Task Api Key", savedApiKey);
-
-      if (savedApiKey && savedApiKey.trim()) {
-        setApiKey(savedApiKey.trim());
-        setIsApiKeySet(true);
-        await loadData();
-      } else {
-        setIsApiKeySet(false);
-        setError("Please set your ProWorkflow API key in the 'New Task' tab");
-        setLoading(false);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
+  // Load projects and users
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -193,9 +150,6 @@ const EditTask: React.FC = () => {
         proWorkflowApi.getProjects(),
         proWorkflowApi.getUsers(),
       ]);
-      console.log("user data", usersData);
-      console.log("projedtData", projectsData);
-
       setProjects(projectsData);
       setUsers(usersData);
     } catch (err: any) {
@@ -206,6 +160,33 @@ const EditTask: React.FC = () => {
     }
   };
 
+  // Initialize app with fallback key
+  useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    const initializeApp = async () => {
+      // 🔥 .env fallback + localStorage priority
+      const defaultKey = process.env.PW_API_KEY || "";
+      const savedKey = localStorage.getItem("proworkflow-api-key");
+      const finalKey = savedKey && savedKey.trim() ? savedKey.trim() : defaultKey;
+
+      if (finalKey) {
+        setApiKey(finalKey);
+        setIsApiKeySet(true);
+        setApiKeyInput(finalKey); // ✅ Now valid
+        setError(null);
+        await loadData();
+      } else {
+        setIsApiKeySet(false);
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []); // ✅ Dependency array empty – runs once
+
+  // Load tasks for a project
   const loadTasks = async (projectId: number) => {
     if (!projectId) {
       setTasks([]);
@@ -380,7 +361,7 @@ const EditTask: React.FC = () => {
     return user ? user.name : "Unassigned";
   };
 
-  // Show API Key Setup message
+  // Show API Key Setup message (only if no key available)
   if (!isApiKeySet && !loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -838,6 +819,8 @@ const EditTask: React.FC = () => {
           {toastMessage}
         </Alert>
       </Snackbar>
+
+      {/* Optional: ApiTest component for debugging */}
       <ApiTest />
     </Box>
   );

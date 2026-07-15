@@ -72,6 +72,17 @@ interface DraftData {
   includeAttachments: boolean;
 }
 
+// 🔥 NEW: Helper to convert Base64 to Blob (if Outlook returns base64)
+const base64ToBlob = (base64: string, mimeType: string = "application/octet-stream"): Blob => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+};
+
 const CreateTask: React.FC = () => {
   // Form state
   const [taskName, setTaskName] = useState("");
@@ -184,12 +195,15 @@ const CreateTask: React.FC = () => {
     isInitialized.current = true;
 
     const initializeApp = async () => {
-      const savedApiKey = localStorage.getItem("proworkflow-api-key");
-      console.log("Saved API Key:", savedApiKey);
+      // 🔥 .env fallback (already added)
+      const defaultKey = process.env.PW_API_KEY || "";
+      const savedKey = localStorage.getItem("proworkflow-api-key");
+      const finalKey = savedKey && savedKey.trim() ? savedKey.trim() : defaultKey;
 
-      if (savedApiKey && savedApiKey.trim()) {
-        setApiKey(savedApiKey.trim());
+      if (finalKey) {
+        setApiKey(finalKey);
         setIsApiKeySet(true);
+        setApiKeyInput(finalKey);
         setError(null);
         await loadAllData();
       } else {
@@ -302,13 +316,14 @@ const CreateTask: React.FC = () => {
   const handleConfirmAction = () => {
     setShowConfirmDialog(false);
     if (pendingAction === "submit") {
-      handleSubmit(); // Call without event
+      handleSubmit();
     } else if (pendingAction === "reset") {
       handleReset();
     }
     setPendingAction(null);
   };
 
+  // 🔥 NEW: Main submit with attachment upload
   const handleSubmit = async (e?: React.FormEvent | React.SyntheticEvent) => {
     if (e && e.preventDefault) {
       e.preventDefault();
@@ -330,6 +345,7 @@ const CreateTask: React.FC = () => {
     setLoading(true);
 
     try {
+      // 1. Create the task
       const taskData: CreateTaskRequest = {
         name: taskName.trim(),
         projectid: projectId,
@@ -343,14 +359,77 @@ const CreateTask: React.FC = () => {
       const result = await proWorkflowApi.createTask(taskData);
       console.log("Task created:", result);
 
+      // Extract task ID (API might return { data: { id } } or just { id })
+      const newTaskId = result.id || result?.data?.id;
+      if (!newTaskId) {
+        throw new Error("Task created but no ID returned");
+      }
+
+      // 2. 🔥 Upload attachments if checkbox is ticked and attachments exist
+      if (includeAttachments && outlookData?.attachments && outlookData.attachments.length > 0) {
+        console.log(`📎 Uploading ${outlookData.attachments.length} attachments...`);
+
+        // Map each attachment to an upload promise
+        const uploadPromises = outlookData.attachments.map(async (att) => {
+          // Determine if att is already a File/Blob or base64 string
+          let fileToUpload: File | Blob;
+          let fileName = att.name || "attachment.bin";
+
+          if (att instanceof File || att instanceof Blob) {
+            // Already a File/Blob
+            fileToUpload = att;
+          } else if (typeof att === "string" && (att as string).startsWith("data:")) {
+            // Data URL – convert to Blob
+            const response = await fetch(att);
+            fileToUpload = await response.blob();
+            // Extract filename from data URL if possible, else use default
+          } else if (typeof att === "string" && (att as string).length > 0) {
+            // Assume it's base64 string (without data: prefix)
+            // Need to know mime type, we can guess or let user pass in att.mimeType
+            // For simplicity, assume application/octet-stream
+            const mimeType = (att as any).mimeType || "application/octet-stream";
+            fileToUpload = base64ToBlob(att, mimeType);
+          } else {
+            // Unknown format – skip or throw
+            console.warn("Skipping attachment with unknown format:", att);
+            return null;
+          }
+
+          // Actually upload
+          // proWorkflowApi may not have uploadAttachment typed; cast to any to call if available
+          return (proWorkflowApi as any).uploadAttachment
+            ? (proWorkflowApi as any).uploadAttachment(newTaskId, fileToUpload, fileName)
+            : Promise.reject(new Error("uploadAttachment not implemented on proWorkflowApi"));
+        });
+
+        // Wait for all uploads to finish
+        const uploadResults = await Promise.all(
+          uploadPromises.map((p) =>
+            p.catch((err) => ({ status: "rejected" as const, reason: err }))
+          )
+        );
+        const failed = uploadResults.filter((r) => (r as any).status === "rejected");
+        if (failed.length > 0) {
+          console.warn(`${failed.length} attachment(s) failed to upload.`);
+          showToast(`Task created, but ${failed.length} attachment(s) failed.`, "warning");
+        } else {
+          console.log("✅ All attachments uploaded successfully.");
+        }
+      }
+
       setSuccess(true);
-      showToast("Task created successfully! 🎉", "success");
+      showToast(
+        includeAttachments && outlookData?.attachments?.length
+          ? "Task and attachments created successfully! 🎉"
+          : "Task created successfully! 🎉",
+        "success"
+      );
       setDraft(null);
 
-      // Reset form after success
+      // Reset form after success (optional)
       setTimeout(() => {
         setSuccess(false);
-        // Optional: Reset form fields
+        // Uncomment if you want auto-reset:
         // handleReset();
       }, 5000);
     } catch (err: any) {

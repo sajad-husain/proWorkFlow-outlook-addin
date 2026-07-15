@@ -56,6 +56,7 @@ export interface User {
 }
 
 export interface Task {
+  data: any;
   id: number;
   name: string;
   projectid: number;
@@ -155,3 +156,26 @@ export const proWorkflowApi = {
     }
   },
 };
+
+// src/services/proworkflow.ts - andar proWorkflowApi object mein yeh add karein
+
+uploadAttachment: async (taskId: number, file: File | Blob, fileName: string): Promise<any> => {
+  const formData = new FormData();
+  formData.append('file', file, fileName);
+
+  const response = await fetch(`${BASE_URL}tasks/${taskId}/attachments`, {
+    method: "POST",
+    headers: {
+      "apikey": API_KEY,
+      // Content-Type automatically set by FormData, don't set it manually
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Attachment upload failed (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
