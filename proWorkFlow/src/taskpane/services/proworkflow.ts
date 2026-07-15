@@ -1,306 +1,157 @@
-// ProWorkflow API Service - Real API Implementation
+// src/services/proworkflow.ts
 
-const API_BASE_URL = 'https://api.proworkflow.com/api/v4';
-let API_KEY = '';
+const BASE_URL = process.env.VITE_PW_BASE_URL || ""
+
+let API_KEY = process.env.VITE_PW_API_KEY  || ""
 
 export const setApiKey = (key: string) => {
-  API_KEY = key;
+  API_KEY = key.trim();
 };
 
-export const getApiKey = (): string => {
-  return API_KEY;
+// Helper: API fetch with error handling
+const apiFetch = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
+  if (!API_KEY) {
+    throw new Error("API key is not set.");
+  }
+
+  const url = `${BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "apikey": API_KEY,
+      "Accept": "application/json",
+      ...(options?.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  // DELETE returns 204 No Content
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  return response.json();
 };
 
-// API Headers
-const getHeaders = () => ({
-  'apikey': API_KEY,
-  'Accept': 'application/json',
-  'Content-Type': 'application/json',
-});
-
-// Types
+// ---------- INTERFACES ----------
 export interface Project {
   id: number;
-  name: string;
-  description?: string;
-  status?: string;
+  name?: string;       // API v4 uses "name" but sometimes "title"
+  title?: string;
+  number?: string;
+  startdate?: string;
+  duedate?: string;
   companyid?: number;
+  companyname?: string;
 }
 
 export interface User {
   id: number;
   name: string;
   email?: string;
-  username?: string;
-  first_name?: string;
-  last_name?: string;
-}
-
-export interface Contact {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email?: string;
-  username?: string;
-  company_name?: string;
-}
-
-export interface CreateTaskRequest {
-  projectid: number;
-  name: string;
-  description?: string;
-  assignee?: number;
-  priority?: 'Low' | 'Medium' | 'High';
-  duedate?: string; // YYYY-MM-DD
-  urgent?: boolean;
-  attachments?: File[];
-  estimated_hours?: number;
-  billed_hours?: number;
-  completed?: boolean;
 }
 
 export interface Task {
   id: number;
   name: string;
-  description?: string;
   projectid: number;
   assignee?: number;
-  priority?: string;
+  description?: string;
+  priority?: "Low" | "Medium" | "High";
   duedate?: string;
   urgent?: boolean;
   status?: string;
-  estimated_hours?: number;
-  billed_hours?: number;
-  completed?: boolean;
-  created_date?: string;
-  modified_date?: string;
 }
 
-// API Methods
+export interface CreateTaskRequest {
+  name: string;
+  projectid: number;
+  assignee?: number;
+  description?: string;
+  priority?: "Low" | "Medium" | "High";
+  duedate?: string;
+  urgent?: boolean;
+}
+
+// ---------- API METHODS ----------
 export const proWorkflowApi = {
-  // Test API Key
-  testApiKey: async (apiKey: string): Promise<boolean> => {
+  // Test API key
+  testApiKey: async (key: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/contacts?pagesize=1&pagenumber=1`, {
-        method: 'GET',
-        headers: {
-          'apikey': apiKey,
-          'Accept': 'application/json',
-        },
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('API Key test failed:', error);
+      const tempKey = API_KEY;
+      setApiKey(key);
+      await apiFetch<any>("projects?limit=1");
+      setApiKey(tempKey);
+      return true;
+    } catch {
       return false;
     }
   },
 
-  // Get all projects
+  // Get all projects (handles both {data:[]} and direct array)
   getProjects: async (): Promise<Project[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/projects`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Failed to fetch projects: ${response.status} - ${errorData}`);
-      }
-      
-      const data = await response.json();
-      return data.projects || [];
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      throw error;
-    }
-  },
-
-  // Get all users/contacts
-  getUsers: async (): Promise<User[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/contacts`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Failed to fetch users: ${response.status} - ${errorData}`);
-      }
-      
-      const data = await response.json();
-      // Map contacts to users format
-      const contacts = data.contacts || [];
-      return contacts.map((contact: Contact) => ({
-        id: contact.id,
-        name: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.username || 'Unknown',
-        email: contact.email || '',
-        username: contact.username || '',
-        first_name: contact.first_name || '',
-        last_name: contact.last_name || '',
+    const response = await apiFetch<any>("projects");
+    const data = response.data || response;
+    if (Array.isArray(data)) {
+      return data.map((p: any) => ({
+        ...p,
+        name: p.name || p.title || "Unnamed Project",
       }));
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      throw error;
     }
+    return [];
   },
 
-  // Create a new task
-  createTask: async (taskData: CreateTaskRequest): Promise<Task> => {
-    try {
-      // Clean data - remove undefined values
-      const cleanData: any = { ...taskData };
-      Object.keys(cleanData).forEach(key => {
-        if (cleanData[key] === undefined || cleanData[key] === null) {
-          delete cleanData[key];
-        }
-      });
-
-      // Convert priority to string if needed
-      if (cleanData.priority) {
-        cleanData.priority = cleanData.priority.toString();
-      }
-
-      // Convert urgent to 0/1 if API expects it
-      if (cleanData.urgent !== undefined) {
-        cleanData.urgent = cleanData.urgent ? 1 : 0;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/tasks`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(cleanData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        let errorMessage = `Failed to create task: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorData);
-          errorMessage = errorJson.message || errorJson.error || errorMessage;
-        } catch {
-          errorMessage = errorData || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      return data.task || data;
-    } catch (error) {
-      console.error('Error creating task:', error);
-      throw error;
-    }
+  // Get all users
+  getUsers: async (): Promise<User[]> => {
+    const response = await apiFetch<any>("users");
+    const data = response.data || response;
+    return Array.isArray(data) ? data : [];
   },
 
   // Get tasks for a project
-  getTasks: async (projectId?: number): Promise<Task[]> => {
-    try {
-      const url = projectId 
-        ? `${API_BASE_URL}/tasks?projectid=${projectId}`
-        : `${API_BASE_URL}/tasks`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Failed to fetch tasks: ${response.status} - ${errorData}`);
-      }
-      
-      const data = await response.json();
-      return data.tasks || [];
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      throw error;
-    }
+  getTasks: async (projectId: number): Promise<Task[]> => {
+    const response = await apiFetch<any>(`tasks?projectid=${projectId}`);
+    const data = response.data || response;
+    return Array.isArray(data) ? data : [];
   },
 
-  // Get single task details
-  getTask: async (taskId: number): Promise<Task | null> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch task: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.task || null;
-    } catch (error) {
-      console.error('Error fetching task:', error);
-      throw error;
-    }
+  // ⭐ NEW: Get a single task by ID
+  getTask: async (taskId: number): Promise<Task> => {
+    const response = await apiFetch<any>(`tasks/${taskId}`);
+    return response.data || response;
+  },
+
+  // Create task
+  createTask: async (taskData: CreateTaskRequest): Promise<Task> => {
+    const response = await apiFetch<any>("tasks", {
+      method: "POST",
+      body: JSON.stringify(taskData),
+      headers: { "Content-Type": "application/json" },
+    });
+    return response.data || response;
   },
 
   // Update task
-  updateTask: async (taskId: number, taskData: Partial<Task>): Promise<Task> => {
-    try {
-      // Clean data - remove undefined values
-      const cleanData: any = { ...taskData };
-      Object.keys(cleanData).forEach(key => {
-        if (cleanData[key] === undefined || cleanData[key] === null) {
-          delete cleanData[key];
-        }
-      });
-
-      // Convert priority to string if needed
-      if (cleanData.priority) {
-        cleanData.priority = cleanData.priority.toString();
-      }
-
-      // Convert urgent to 0/1 if API expects it
-      if (cleanData.urgent !== undefined) {
-        cleanData.urgent = cleanData.urgent ? 1 : 0;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify(cleanData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        let errorMessage = `Failed to update task: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorData);
-          errorMessage = errorJson.message || errorJson.error || errorMessage;
-        } catch {
-          errorMessage = errorData || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      return data.task || data;
-    } catch (error) {
-      console.error('Error updating task:', error);
-      throw error;
-    }
+  updateTask: async (taskId: number, taskData: Partial<CreateTaskRequest> & { status?: string }): Promise<Task> => {
+    const response = await apiFetch<any>(`tasks/${taskId}`, {
+      method: "PUT",
+      body: JSON.stringify(taskData),
+      headers: { "Content-Type": "application/json" },
+    });
+    return response.data || response;
   },
 
-  // Delete task
+  // Delete task – returns boolean (true on success, false on failure)
   deleteTask: async (taskId: number): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to delete task: ${response.status}`);
-      }
-      
+      await apiFetch<void>(`tasks/${taskId}`, { method: "DELETE" });
       return true;
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      throw error;
+    } catch {
+      return false;
     }
   },
 };

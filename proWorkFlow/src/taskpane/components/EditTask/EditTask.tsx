@@ -60,6 +60,7 @@ import {
   PersonOutlined,
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
+import ApiTest from "../ApiTest";
 
 // Helper function to get status color
 
@@ -192,6 +193,9 @@ const EditTask: React.FC = () => {
         proWorkflowApi.getProjects(),
         proWorkflowApi.getUsers(),
       ]);
+      console.log("user data", usersData);
+      console.log("projedtData", projectsData);
+
       setProjects(projectsData);
       setUsers(usersData);
     } catch (err: any) {
@@ -834,6 +838,7 @@ const EditTask: React.FC = () => {
           {toastMessage}
         </Alert>
       </Snackbar>
+      <ApiTest />
     </Box>
   );
 };
