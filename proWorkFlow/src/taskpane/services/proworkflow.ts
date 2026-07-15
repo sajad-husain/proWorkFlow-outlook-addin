@@ -1,8 +1,8 @@
 // src/services/proworkflow.ts
 
-const BASE_URL = process.env.VITE_PW_BASE_URL || ""
+const BASE_URL = process.env.PW_BASE_URL || "https://api.proworkflow.com/api/v4/";
 
-let API_KEY = process.env.VITE_PW_API_KEY  || ""
+let API_KEY = process.env.PW_API_KEY || "";
 
 export const setApiKey = (key: string) => {
   API_KEY = key.trim();
@@ -40,7 +40,7 @@ const apiFetch = async <T>(endpoint: string, options?: RequestInit): Promise<T> 
 // ---------- INTERFACES ----------
 export interface Project {
   id: number;
-  name?: string;       // API v4 uses "name" but sometimes "title"
+  name?: string;
   title?: string;
   number?: string;
   startdate?: string;
@@ -56,7 +56,7 @@ export interface User {
 }
 
 export interface Task {
-  data: any;
+  data?: any;
   id: number;
   name: string;
   projectid: number;
@@ -93,7 +93,7 @@ export const proWorkflowApi = {
     }
   },
 
-  // Get all projects (handles both {data:[]} and direct array)
+  // Get all projects
   getProjects: async (): Promise<Project[]> => {
     const response = await apiFetch<any>("projects");
     const data = response.data || response;
@@ -120,7 +120,7 @@ export const proWorkflowApi = {
     return Array.isArray(data) ? data : [];
   },
 
-  // ⭐ NEW: Get a single task by ID
+  // Get a single task by ID
   getTask: async (taskId: number): Promise<Task> => {
     const response = await apiFetch<any>(`tasks/${taskId}`);
     return response.data || response;
@@ -137,7 +137,10 @@ export const proWorkflowApi = {
   },
 
   // Update task
-  updateTask: async (taskId: number, taskData: Partial<CreateTaskRequest> & { status?: string }): Promise<Task> => {
+  updateTask: async (
+    taskId: number,
+    taskData: Partial<CreateTaskRequest> & { status?: string }
+  ): Promise<Task> => {
     const response = await apiFetch<any>(`tasks/${taskId}`, {
       method: "PUT",
       body: JSON.stringify(taskData),
@@ -146,7 +149,7 @@ export const proWorkflowApi = {
     return response.data || response;
   },
 
-  // Delete task – returns boolean (true on success, false on failure)
+  // Delete task
   deleteTask: async (taskId: number): Promise<boolean> => {
     try {
       await apiFetch<void>(`tasks/${taskId}`, { method: "DELETE" });
@@ -155,27 +158,26 @@ export const proWorkflowApi = {
       return false;
     }
   },
+
+  // ✅ Upload attachment to a task (added inside object)
+  uploadAttachment: async (taskId: number, file: File | Blob, fileName: string): Promise<any> => {
+    const formData = new FormData();
+    formData.append("file", file, fileName);
+
+    const response = await fetch(`${BASE_URL}tasks/${taskId}/attachments`, {
+      method: "POST",
+      headers: {
+        apikey: API_KEY,
+        // Content-Type automatically set by FormData
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Attachment upload failed (${response.status}): ${errorText}`);
+    }
+
+    return response.json();
+  },
 };
-
-// src/services/proworkflow.ts - andar proWorkflowApi object mein yeh add karein
-
-uploadAttachment: async (taskId: number, file: File | Blob, fileName: string): Promise<any> => {
-  const formData = new FormData();
-  formData.append('file', file, fileName);
-
-  const response = await fetch(`${BASE_URL}tasks/${taskId}/attachments`, {
-    method: "POST",
-    headers: {
-      "apikey": API_KEY,
-      // Content-Type automatically set by FormData, don't set it manually
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Attachment upload failed (${response.status}): ${errorText}`);
-  }
-
-  return response.json();
-}
