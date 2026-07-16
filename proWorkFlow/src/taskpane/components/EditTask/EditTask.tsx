@@ -55,7 +55,7 @@ import {
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
 
-// Helper functions
+// Helper functions (unchanged)
 const getStatusColor = (status?: string): string => {
   switch (status?.toLowerCase()) {
     case "done":
@@ -142,7 +142,9 @@ const EditTask: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const isInitialized = useRef(false);
 
-  // 🔥 NEW: Direct fetch for projects (bypassing service)
+  // ----- Direct fetch functions (bypassing service) -----
+
+  // 🔥 Direct fetch for projects
   const fetchProjectsDirectly = async (): Promise<Project[]> => {
     const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
     if (!API_KEY) {
@@ -167,9 +169,8 @@ const EditTask: React.FC = () => {
     }
 
     const jsonData = await response.json();
-    console.log("✅ Direct fetch response:", jsonData);
+    console.log("✅ Direct fetch projects response:", jsonData);
 
-    // Handle both {data: [...]} and direct array
     const data = jsonData.data || jsonData;
     if (Array.isArray(data)) {
       return data.map((p: any) => ({
@@ -180,17 +181,63 @@ const EditTask: React.FC = () => {
     return [];
   };
 
-  // Load projects (direct fetch) and users (via service)
+  // 🔥 NEW: Direct fetch for tasks (items) using /projects/items?projectid=
+  const fetchTasksDirectly = async (projectId: number): Promise<Task[]> => {
+    const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
+    if (!API_KEY) {
+      throw new Error("API key is not set.");
+    }
+
+    const url = `https://api.proworkflow.com/api/v4/projects/items?projectid=${projectId}`;
+    console.log(`🔍 Direct fetch tasks for project ${projectId} from:`, url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: API_KEY,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Direct fetch tasks failed:", errorText);
+      throw new Error(`Failed to fetch tasks (${response.status}): ${errorText}`);
+    }
+
+    const jsonData = await response.json();
+    console.log(`✅ Direct fetch tasks response (project ${projectId}):`, jsonData);
+
+    // Handle both {data: [...]} and direct array
+    const data = jsonData.data || jsonData;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => ({
+        id: item.id,
+        name: item.name || item.title || "Unnamed Task",
+        projectid: item.projectid || projectId,
+        assignee: item.assignee || item.assigned_to,
+        description: item.description || "",
+        priority: item.priority || "Medium",
+        duedate: item.duedate || item.due_date || "",
+        urgent: item.urgent || false,
+        status: item.status || "",
+        // Pass through any other fields
+        ...item,
+      }));
+    }
+    return [];
+  };
+
+  // ----- Load data (projects and users) -----
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // 🔥 Projects ko DIRECT fetch karo
       const projectsData = await fetchProjectsDirectly();
       setProjects(projectsData);
       console.log(`📦 Loaded ${projectsData.length} projects via direct fetch`);
 
-      // Users ko service se fetch karo (jaise pehle chal raha tha)
+      // Users via service (unchanged)
       const usersData = await proWorkflowApi.getUsers();
       setUsers(usersData);
       console.log(`👤 Loaded ${usersData.length} users via service`);
@@ -202,7 +249,34 @@ const EditTask: React.FC = () => {
     }
   };
 
-  // Initialize app with fallback key
+  // ----- Load tasks using direct fetch -----
+  const loadTasks = async (projectId: number) => {
+    if (!projectId) {
+      setTasks([]);
+      return;
+    }
+
+    setLoadingTasks(true);
+    setError(null);
+    try {
+      const tasksData = await fetchTasksDirectly(projectId);
+      setTasks(tasksData);
+      setSelectedTaskId(0);
+      setIsEditMode(false);
+      resetForm();
+
+      if (tasksData.length === 0) {
+        setError("No tasks found in this project");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to load tasks");
+      console.error(err);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  // ----- Initialize app -----
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
@@ -227,33 +301,7 @@ const EditTask: React.FC = () => {
     initializeApp();
   }, []);
 
-  // Load tasks for a project (via service – unchanged)
-  const loadTasks = async (projectId: number) => {
-    if (!projectId) {
-      setTasks([]);
-      return;
-    }
-
-    setLoadingTasks(true);
-    setError(null);
-    try {
-      const tasksData = await proWorkflowApi.getTasks(projectId);
-      setTasks(tasksData);
-      setSelectedTaskId(0);
-      setIsEditMode(false);
-      resetForm();
-
-      if (tasksData.length === 0) {
-        setError("No tasks found in this project");
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load tasks");
-      console.error(err);
-    } finally {
-      setLoadingTasks(false);
-    }
-  };
-
+  // ----- Project change handler -----
   const handleProjectChange = (projectId: number) => {
     setSelectedProjectId(projectId);
     setSelectedTaskId(0);
@@ -265,6 +313,7 @@ const EditTask: React.FC = () => {
     }
   };
 
+  // ----- Task selection handler -----
   const handleTaskSelect = (taskId: number) => {
     setSelectedTaskId(taskId);
     setIsEditMode(true);
@@ -286,6 +335,7 @@ const EditTask: React.FC = () => {
     }
   };
 
+  // ----- Reset form -----
   const resetForm = () => {
     setTaskName("");
     setAssigneeId(0);
@@ -299,6 +349,7 @@ const EditTask: React.FC = () => {
     setSuccess(false);
   };
 
+  // ----- Save (update) task using service -----
   const handleSave = async () => {
     if (!selectedTaskId) {
       setError("No task selected");
@@ -345,6 +396,7 @@ const EditTask: React.FC = () => {
     }
   };
 
+  // ----- Delete using service -----
   const handleDelete = async () => {
     if (!selectedTaskId) return;
 
@@ -363,6 +415,7 @@ const EditTask: React.FC = () => {
     }
   };
 
+  // ----- Cancel / Refresh / Toast helpers -----
   const handleCancel = () => {
     resetForm();
     setIsEditMode(false);
@@ -391,6 +444,7 @@ const EditTask: React.FC = () => {
     setToastOpen(false);
   };
 
+  // ----- Filters and helpers -----
   const filteredTasks = tasks.filter(
     (task) =>
       task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -402,7 +456,7 @@ const EditTask: React.FC = () => {
     return user ? user.name : "Unassigned";
   };
 
-  // Show API Key Setup message (only if no key available)
+  // ----- Render -----
   if (!isApiKeySet && !loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -637,13 +691,12 @@ const EditTask: React.FC = () => {
           </Paper>
         )}
 
-        {/* Edit Form - Clean and Simple */}
+        {/* Edit Form */}
         {isEditMode && originalTask && (
           <>
             <Divider />
             <Paper elevation={1} sx={{ p: 3 }}>
               <Stack spacing={3}>
-                {/* Task Info Header */}
                 <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <Badge color="primary" variant="dot">
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -670,7 +723,6 @@ const EditTask: React.FC = () => {
 
                 <Divider />
 
-                {/* Status */}
                 <FormControl fullWidth>
                   <InputLabel>Status</InputLabel>
                   <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
@@ -683,7 +735,6 @@ const EditTask: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                {/* Task Name */}
                 <TextField
                   required
                   fullWidth
@@ -702,7 +753,6 @@ const EditTask: React.FC = () => {
                   }}
                 />
 
-                {/* Assignee */}
                 <FormControl fullWidth>
                   <InputLabel>Assignee</InputLabel>
                   <Select
@@ -720,7 +770,6 @@ const EditTask: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                {/* Description */}
                 <TextField
                   fullWidth
                   multiline
@@ -740,7 +789,6 @@ const EditTask: React.FC = () => {
                   }}
                 />
 
-                {/* Priority & Due Date */}
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth>
@@ -777,7 +825,6 @@ const EditTask: React.FC = () => {
                   </Grid>
                 </Grid>
 
-                {/* Urgent Checkbox */}
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -794,7 +841,6 @@ const EditTask: React.FC = () => {
                   }
                 />
 
-                {/* Action Buttons */}
                 <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                   <Button
                     variant="outlined"
@@ -818,7 +864,6 @@ const EditTask: React.FC = () => {
           </>
         )}
 
-        {/* Empty State */}
         {selectedProjectId === 0 && (
           <Alert severity="info" icon={<Info />}>
             Please select a project to view and edit tasks.
@@ -826,7 +871,7 @@ const EditTask: React.FC = () => {
         )}
       </Stack>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
         <DialogTitle>Delete Task</DialogTitle>
         <DialogContent>
