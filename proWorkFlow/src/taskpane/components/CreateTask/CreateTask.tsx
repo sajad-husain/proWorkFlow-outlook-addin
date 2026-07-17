@@ -72,7 +72,7 @@ interface DraftData {
   includeAttachments: boolean;
 }
 
-// 🔥 NEW: Helper to convert Base64 to Blob (if Outlook returns base64)
+// Helper to convert Base64 to Blob
 const base64ToBlob = (base64: string, mimeType: string = "application/octet-stream"): Blob => {
   const byteCharacters = atob(base64);
   const byteNumbers = new Array(byteCharacters.length);
@@ -96,9 +96,9 @@ const CreateTask: React.FC = () => {
 
   // Data state
   const [projects, setProjects] = useState<Project[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [contacts, setContacts] = useState<User[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -122,7 +122,65 @@ const CreateTask: React.FC = () => {
   // Auto-save draft
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
-  // Load Outlook data - defined first so it can be used in loadAllData
+  // ----- Direct fetch for contacts -----
+  const fetchContactsDirectly = async (): Promise<User[]> => {
+    const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
+    if (!API_KEY) {
+      throw new Error("API key is not set.");
+    }
+
+    const url = "https://api.proworkflow.com/api/v4/contacts";
+    console.log("🔍 Direct fetch contacts from:", url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: API_KEY,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Direct fetch contacts failed:", errorText);
+      throw new Error(`Failed to fetch contacts (${response.status}): ${errorText}`);
+    }
+
+    const jsonData = await response.json();
+    console.log("✅ Direct fetch contacts response:", jsonData);
+
+    const data = jsonData.data || jsonData;
+    if (Array.isArray(data)) {
+      return data.map((c: any) => {
+        // 🔥 FIX: Combine firstname and lastname
+        let displayName = "Unnamed Contact";
+        if (c.firstname && c.lastname) {
+          displayName = `${c.firstname} ${c.lastname}`;
+        } else if (c.firstname) {
+          displayName = c.firstname;
+        } else if (c.lastname) {
+          displayName = c.lastname;
+        } else if (c.companyname) {
+          displayName = c.companyname;
+        } else if (c.fullname) {
+          displayName = c.fullname;
+        }
+
+        return {
+          id: c.id,
+          name: displayName,
+          email: c.email || "",
+          firstname: c.firstname || "",
+          lastname: c.lastname || "",
+          companyname: c.companyname || "",
+          ...c,
+        };
+      });
+    }
+    return [];
+  };
+
+  // ----- Load Outlook data -----
   const loadOutlookDataInternal = useCallback(async () => {
     setLoadingOutlook(true);
     try {
@@ -144,7 +202,7 @@ const CreateTask: React.FC = () => {
     }
   }, [draft]);
 
-  // Load draft
+  // ----- Load draft -----
   const loadDraftInternal = useCallback(() => {
     if (draft) {
       setTaskName(draft.taskName || "");
@@ -158,23 +216,21 @@ const CreateTask: React.FC = () => {
     }
   }, [draft]);
 
-  // Load all data
+  // ----- Load all data (projects via service, contacts via direct fetch) -----
   const loadAllData = useCallback(async () => {
     setLoadingData(true);
     setError(null);
     try {
       setLoadingProjects(true);
-      setLoadingUsers(true);
+      setLoadingContacts(true);
 
-      const [projectsData, usersData] = await Promise.all([
-        proWorkflowApi.getProjects(),
-        proWorkflowApi.getUsers(),
-      ]);
-
+      const projectsData = await proWorkflowApi.getProjects();
       setProjects(projectsData);
-      setUsers(usersData);
       setLoadingProjects(false);
-      setLoadingUsers(false);
+
+      const contactsData = await fetchContactsDirectly();
+      setContacts(contactsData);
+      setLoadingContacts(false);
 
       await loadOutlookDataInternal();
       loadDraftInternal();
@@ -183,19 +239,18 @@ const CreateTask: React.FC = () => {
       setError(errorMsg);
       console.error(err);
       setLoadingProjects(false);
-      setLoadingUsers(false);
+      setLoadingContacts(false);
     } finally {
       setLoadingData(false);
     }
   }, [loadOutlookDataInternal, loadDraftInternal]);
 
-  // Initialize app - runs only once
+  // Initialize app
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
 
     const initializeApp = async () => {
-      // 🔥 .env fallback (already added)
       const defaultKey = process.env.PW_API_KEY || "";
       const savedKey = localStorage.getItem("proworkflow-api-key");
       const finalKey = savedKey && savedKey.trim() ? savedKey.trim() : defaultKey;
@@ -215,7 +270,7 @@ const CreateTask: React.FC = () => {
     initializeApp();
   }, [loadAllData]);
 
-  // Auto-save draft on form change - with debounce
+  // Auto-save draft
   useEffect((): void | (() => void) => {
     if (!isApiKeySet) return;
 
@@ -323,7 +378,7 @@ const CreateTask: React.FC = () => {
     setPendingAction(null);
   };
 
-  // 🔥 NEW: Main submit with attachment upload
+  // ----- Submit handler with attachment upload -----
   const handleSubmit = async (e?: React.FormEvent | React.SyntheticEvent) => {
     if (e && e.preventDefault) {
       e.preventDefault();
@@ -332,7 +387,6 @@ const CreateTask: React.FC = () => {
     setError(null);
     setSuccess(false);
 
-    // Validation
     if (!taskName.trim()) {
       showToast("Task name is required", "error");
       return;
@@ -345,7 +399,6 @@ const CreateTask: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Create the task
       const taskData: CreateTaskRequest = {
         name: taskName.trim(),
         projectid: projectId,
@@ -359,54 +412,53 @@ const CreateTask: React.FC = () => {
       const result = await proWorkflowApi.createTask(taskData);
       console.log("Task created:", result);
 
-      // Extract task ID (API might return { data: { id } } or just { id })
       const newTaskId = result.id || result?.data?.id;
       if (!newTaskId) {
         throw new Error("Task created but no ID returned");
       }
 
-      // 2. 🔥 Upload attachments if checkbox is ticked and attachments exist
+      // Upload attachments if any
       if (includeAttachments && outlookData?.attachments && outlookData.attachments.length > 0) {
         console.log(`📎 Uploading ${outlookData.attachments.length} attachments...`);
 
-        // Map each attachment to an upload promise
-        const uploadPromises = outlookData.attachments.map(async (att) => {
-          // Determine if att is already a File/Blob or base64 string
+        const uploadPromises = outlookData.attachments.map(async (att: any) => {
           let fileToUpload: File | Blob;
           let fileName = att.name || "attachment.bin";
 
           if (att instanceof File || att instanceof Blob) {
-            // Already a File/Blob
             fileToUpload = att;
-          } else if (typeof att === "string" && (att as string).startsWith("data:")) {
-            // Data URL – convert to Blob
-            const response = await fetch(att);
-            fileToUpload = await response.blob();
-            // Extract filename from data URL if possible, else use default
-          } else if (typeof att === "string" && (att as string).length > 0) {
-            // Assume it's base64 string (without data: prefix)
-            // Need to know mime type, we can guess or let user pass in att.mimeType
-            // For simplicity, assume application/octet-stream
-            const mimeType = (att as any).mimeType || "application/octet-stream";
-            fileToUpload = base64ToBlob(att, mimeType);
+          } else if (att.content && typeof att.content === "string") {
+            const mimeType = att.mimeType || "application/octet-stream";
+            fileToUpload = base64ToBlob(att.content, mimeType);
+            fileName = att.name || "attachment.bin";
+          } else if (typeof att === "string" && att.length > 0) {
+            let mimeType = "application/octet-stream";
+            let base64Data = att;
+            if (att.startsWith("data:")) {
+              const matches = att.match(/^data:([^;]+);/);
+              if (matches && matches[1]) {
+                mimeType = matches[1];
+              }
+              const parts = att.split(",");
+              if (parts.length === 2) {
+                base64Data = parts[1];
+              } else {
+                base64Data = att;
+              }
+            }
+            fileToUpload = base64ToBlob(base64Data, mimeType);
           } else {
-            // Unknown format – skip or throw
             console.warn("Skipping attachment with unknown format:", att);
             return null;
           }
 
-          // Actually upload
-          // proWorkflowApi may not have uploadAttachment typed; cast to any to call if available
           return (proWorkflowApi as any).uploadAttachment
             ? (proWorkflowApi as any).uploadAttachment(newTaskId, fileToUpload, fileName)
-            : Promise.reject(new Error("uploadAttachment not implemented on proWorkflowApi"));
+            : Promise.reject(new Error("uploadAttachment not implemented"));
         });
 
-        // Wait for all uploads to finish
         const uploadResults = await Promise.all(
-          uploadPromises.map((p) =>
-            p.catch((err) => ({ status: "rejected" as const, reason: err }))
-          )
+          uploadPromises.map((p) => p.catch((err) => ({ status: "rejected", reason: err })))
         );
         const failed = uploadResults.filter((r) => (r as any).status === "rejected");
         if (failed.length > 0) {
@@ -425,13 +477,7 @@ const CreateTask: React.FC = () => {
         "success"
       );
       setDraft(null);
-
-      // Reset form after success (optional)
-      setTimeout(() => {
-        setSuccess(false);
-        // Uncomment if you want auto-reset:
-        // handleReset();
-      }, 5000);
+      setTimeout(() => setSuccess(false), 5000);
     } catch (err: any) {
       setError(err.message || "Failed to create task");
       showToast(err.message || "Failed to create task", "error");
@@ -477,7 +523,7 @@ const CreateTask: React.FC = () => {
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
 
-  // Show API Key Setup
+  // ----- Render -----
   if (!isApiKeySet && !loadingData) {
     return (
       <Box sx={{ p: 3 }}>
@@ -486,10 +532,8 @@ const CreateTask: React.FC = () => {
             🔑 ProWorkflow API Key
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-            Please enter your ProWorkflow API key to connect the add-in. You can find it in your
-            ProWorkflow account settings.
+            Please enter your ProWorkflow API key to connect the add-in.
           </Typography>
-
           <Box sx={{ maxWidth: 400, mx: "auto" }}>
             <TextField
               fullWidth
@@ -513,7 +557,6 @@ const CreateTask: React.FC = () => {
                 },
               }}
             />
-
             <Button
               fullWidth
               variant="contained"
@@ -524,14 +567,12 @@ const CreateTask: React.FC = () => {
             >
               {loading ? "Verifying..." : "Verify & Connect"}
             </Button>
-
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
               </Alert>
             )}
           </Box>
-
           <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: "#f8f9fa", textAlign: "left" }}>
             <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600 }}>
               💡 How to get your API key:
@@ -572,7 +613,7 @@ const CreateTask: React.FC = () => {
       onSubmit={(e: React.FormEvent) => handleSubmit(e)}
       sx={{ maxWidth: "100%" }}
     >
-      {/* Header with Outlook info */}
+      {/* Outlook info header */}
       {outlookData && (
         <Paper
           elevation={0}
@@ -656,7 +697,6 @@ const CreateTask: React.FC = () => {
         </Box>
       )}
 
-      {/* Error/Success Alerts */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -668,7 +708,6 @@ const CreateTask: React.FC = () => {
         </Alert>
       )}
 
-      {/* Draft indicator */}
       {draft && (
         <Alert severity="info" sx={{ mb: 2 }} icon={<Warning />}>
           You have a saved draft. Continue editing or click Reset to clear.
@@ -676,7 +715,6 @@ const CreateTask: React.FC = () => {
       )}
 
       <Stack spacing={3}>
-        {/* Task Name */}
         <TextField
           required
           fullWidth
@@ -695,7 +733,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Project */}
+        {/* Project dropdown */}
         <FormControl fullWidth required>
           <InputLabel>Project</InputLabel>
           <Select
@@ -720,16 +758,16 @@ const CreateTask: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Assignee */}
+        {/* Assignee dropdown – using contacts with proper name display */}
         <FormControl fullWidth>
           <InputLabel>Assignee</InputLabel>
           <Select
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value as number)}
             label="Assignee"
-            disabled={loadingUsers}
+            disabled={loadingContacts}
             startAdornment={
-              loadingUsers ? (
+              loadingContacts ? (
                 <CircularProgress size={20} sx={{ ml: 1 }} />
               ) : (
                 <Person color="action" sx={{ ml: 1 }} />
@@ -737,15 +775,14 @@ const CreateTask: React.FC = () => {
             }
           >
             <MenuItem value={0}>Unassigned</MenuItem>
-            {users.map((user) => (
-              <MenuItem key={user.id} value={user.id}>
-                {user.name}
+            {contacts.map((contact) => (
+              <MenuItem key={contact.id} value={contact.id}>
+                {contact.name}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        {/* Description */}
         <TextField
           fullWidth
           multiline
@@ -765,7 +802,6 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Priority & Due Date Row */}
         <Stack direction="row" spacing={2}>
           <FormControl fullWidth>
             <InputLabel>Priority</InputLabel>
@@ -799,7 +835,6 @@ const CreateTask: React.FC = () => {
           />
         </Stack>
 
-        {/* Options */}
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={2}>
             <FormControlLabel
@@ -817,9 +852,7 @@ const CreateTask: React.FC = () => {
                 </Typography>
               }
             />
-
             <Divider />
-
             <FormControlLabel
               control={
                 <Checkbox
@@ -840,7 +873,6 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Paper>
 
-        {/* Keyboard shortcuts hint */}
         <Typography variant="caption" color="textSecondary" sx={{ textAlign: "center" }}>
           <Stack
             direction="row"
@@ -853,7 +885,6 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Typography>
 
-        {/* Action Buttons */}
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
           <Button
             variant="outlined"
@@ -878,7 +909,6 @@ const CreateTask: React.FC = () => {
         </Stack>
       </Stack>
 
-      {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Action</DialogTitle>
         <DialogContent>
@@ -900,7 +930,6 @@ const CreateTask: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Toast Notification */}
       <Snackbar
         open={toastOpen}
         autoHideDuration={4000}

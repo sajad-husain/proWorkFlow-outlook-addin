@@ -27,9 +27,6 @@ const Header: React.FC<HeaderProps> = ({ activeRoute = "create", onRouteChange }
           <Typography variant="h6" sx={{ flex: 1, color: "white" }}>
             ProWorkflow
           </Typography>
-          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
-            Outlook Add-in
-          </Typography>
         </Box>
         <Tabs
           value={getTabIndex(activeRoute)}
