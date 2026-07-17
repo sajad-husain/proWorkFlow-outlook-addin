@@ -25,6 +25,7 @@ proWorkFlow-outlook-addin/
 ├── README.md
 │
 └── proWorkFlow/                                  # Add-in root
+    ├── .env                                      # Environment variables (API base URL + API key)
     ├── .eslintrc.json                            # ESLint (office-addins/react plugin)
     ├── .hintrc                                   # Webhint config
     ├── apitest.html                              # Standalone browser-based API test page
@@ -56,7 +57,7 @@ proWorkFlow-outlook-addin/
             │   └── useLocalStorage.ts            # Custom hook for localStorage persistence
             │
             ├── services/
-            │   ├── proworkflow.ts                 # ProWorkflow REST API client (CRUD)
+            │   ├── proworkflow.ts                 # ProWorkflow REST API client (CRUD + attachments)
             │   ├── outlook.ts                     # Outlook data extraction (subject, body, etc.)
             │   └── editTask.ts                    # Thin wrapper around proworkflow.ts
             │
@@ -68,15 +69,16 @@ proWorkFlow-outlook-addin/
                 ├── Header.tsx                     # AppBar with "New Task" / "Edit Task" tabs
                 ├── Layout.tsx                     # Duplicate MUI theme definition
                 ├── Toast.tsx                      # Reusable Snackbar + Alert notification
+                ├── ApiTest.tsx                    # Debug component for direct API testing
                 │
                 ├── ApiKeySetup/
                 │   └── ApiKeySetup.tsx            # Dialog for entering/verifying API key
                 │
                 ├── CreateTask/
-                │   └── CreateTask.tsx             # Full task creation form (~840 lines)
+                │   └── CreateTask.tsx             # Full task creation form (~1080 lines)
                 │
                 ├── EditTask/
-                │   └── EditTask.tsx               # Task listing, editing, deletion (~840 lines)
+                │   └── EditTask.tsx               # Task listing, editing, deletion (~1009 lines)
                 │
                 ├── ErrorBoundary/
                 │   └── ErrorBoundary.tsx          # React error boundary with reload fallback
@@ -91,6 +93,7 @@ proWorkFlow-outlook-addin/
 |---|---|
 | Framework | React 18.2 + TypeScript 5.4 (ES5 target, strict mode) |
 | UI Library | Material UI (MUI) v9 — theming, components, CSS-in-JS |
+| UI Components | Microsoft Fluent UI React (imported, available for use) |
 | Office Integration | Office.js (mailbox, item body, notifications via CDN) |
 | API Backend | ProWorkflow REST API v4 (`https://api.proworkflow.com/api/v4`) |
 | Bundler | Webpack 5 (multi-entry, HMR, HTTPS dev server on port 3000) |
@@ -107,6 +110,20 @@ proWorkFlow-outlook-addin/
 4. **index.tsx** calls `Office.onReady()` then `createRoot().render(<App />)`.
 5. **App.tsx** checks for a stored API key in localStorage — if missing, shows `ApiKeySetup` dialog; otherwise renders the main `AppRouter`.
 6. **AppRouter** renders either `CreateTask` or `EditTask` based on the selected header tab.
+
+### Environment Configuration
+
+The add-in uses a `.env` file in the `proWorkFlow/` directory for API configuration:
+
+```env
+PW_BASE_URL=https://api.proworkflow.com/api/v4/
+PW_API_KEY=your-api-key-here
+```
+
+- **PW_BASE_URL** — Base URL for the ProWorkflow REST API v4
+- **PW_API_KEY** — Your ProWorkflow API key (used as fallback; user-entered key takes precedence via localStorage)
+
+> **Note:** The `.env` file is gitignored. Create it locally with your own API key. A development key is included in the repository for testing purposes.
 
 ---
 
