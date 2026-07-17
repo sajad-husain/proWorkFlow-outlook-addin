@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
- 
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProWorkflow API Authentication Test</title>
- 
+    <title>ProWorkflow API Test</title>
+
     <style>
         * {
             margin: 0;
@@ -13,168 +13,256 @@
             box-sizing: border-box;
             font-family: Arial, Helvetica, sans-serif;
         }
- 
+
         body {
             background: #f5f7fb;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            padding: 30px;
         }
- 
+
         .container {
-            width: 650px;
-            background: #fff;
+            width: 700px;
+            background: white;
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, .15);
         }
- 
+
         h2 {
             text-align: center;
-            margin-bottom: 20px;
-            color: #333;
+            margin-bottom: 25px;
         }
- 
+
         label {
             display: block;
+            margin-top: 15px;
             margin-bottom: 8px;
             font-weight: bold;
         }
- 
+
         input {
             width: 100%;
             padding: 12px;
             border: 1px solid #ccc;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 15px;
         }
- 
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
         button {
-            margin-top: 20px;
-            width: 100%;
-            padding: 12px;
-            background: #0d6efd;
-            color: #fff;
+            flex: 1;
+            padding: 13px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
+            color: white;
             font-size: 16px;
         }
- 
-        button:hover {
-            background: #0b5ed7;
+
+        .verify {
+            background: #0d6efd;
         }
- 
+
+        .create {
+            background: #198754;
+        }
+
+        button:hover {
+            opacity: .9;
+        }
+
         #result {
-            margin-top: 20px;
+            margin-top: 25px;
             background: #f8f9fa;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: 6px;
             padding: 15px;
             white-space: pre-wrap;
-            word-break: break-word;
             max-height: 450px;
             overflow: auto;
         }
     </style>
- 
+
 </head>
- 
+
 <body>
- 
+
     <div class="container">
- 
+
         <h2>ProWorkflow API Test</h2>
- 
+
         <label>API Key</label>
- 
-        <input id="apikey" type="text" value="EIOM-ZTAY-VAD8-D2Y4-PWFO9JJ-AS11627" />
- 
-        <button onclick="verifyApi()">
-            Verify API Key
-        </button>
- 
-        <div id="result">
-            Click "Verify API Key"
+        <input id="apikey" value="EIOM-ZTAY-VAD8-D2Y4-PWFO9JJ-AS11627">
+
+        <label>Project Name</label>
+        <input id="projectName" placeholder="Enter Project Name...">
+
+        <div class="buttons">
+
+            <button class="verify" onclick="verifyApi()">
+                Verify API
+            </button>
+
+            <button class="create" onclick="createProject()">
+                Create Project
+            </button>
+
         </div>
- 
+
+        <div id="result">
+            Click a button...
+        </div>
+
     </div>
- 
+
     <script>
- 
+
+        const result = document.getElementById("result");
+
+        function show(data, status) {
+
+            result.innerHTML = `
+HTTP Status : ${status}
+
+${typeof data === "string"
+                    ? data
+                    : JSON.stringify(data, null, 4)}
+`;
+
+        }
+
         async function verifyApi() {
- 
+
             const apiKey = document.getElementById("apikey").value.trim();
-            const result = document.getElementById("result");
- 
-            result.innerHTML = "Checking authentication...";
- 
+
+            result.innerHTML = "Checking...";
+
             try {
- 
+
                 const response = await fetch(
-                    "https://api.proworkflow.com/api/v4/projects?",
+                    "https://api.proworkflow.com/api/v4/projects",
                     {
                         method: "GET",
                         headers: {
-                            "apikey": apiKey,
-                            "Accept": "application/json"
+                            apikey: apiKey,
+                            Accept: "application/json"
                         }
                     }
                 );
- 
+
                 const text = await response.text();
- 
+
                 let json;
- 
+
                 try {
                     json = JSON.parse(text);
                 }
                 catch {
                     json = text;
                 }
- 
+
+                show(json, response.status);
+
+            }
+            catch (e) {
+
+                result.innerHTML = e.message;
+
+            }
+
+        }
+
+        async function createProject() {
+
+            const apiKey = document.getElementById("apikey").value.trim();
+
+            const projectName = document.getElementById("projectName").value.trim();
+
+            if (!projectName) {
+
+                alert("Enter project name");
+
+                return;
+
+            }
+
+            result.innerHTML = "Creating Project...";
+
+            try {
+
+                const response = await fetch(
+                    "https://api.proworkflow.com/api/v4/projects",
+                    {
+                        method: "POST",
+                        headers: {
+                            apikey: apiKey,
+                            "Content-Type": "application/json",
+                            Accept: "application/json"
+                        },
+                        body: JSON.stringify({
+
+                            name: projectName
+
+                        })
+                    }
+                );
+
+                const text = await response.text();
+
+                let json;
+
+                try {
+                    json = JSON.parse(text);
+                }
+                catch {
+                    json = text;
+                }
+
                 if (response.ok) {
- 
+
                     result.innerHTML =
-                        `✅ HTTP Status : ${response.status}
- 
-Authentication Successful
- 
-Response:
- 
-${typeof json === "string" ? json : JSON.stringify(json, null, 4)}`;
- 
+                        `✅ Project Created Successfully
+
+${JSON.stringify(json, null, 4)}`;
+
                 }
                 else {
- 
+
                     result.innerHTML =
-                        `❌ HTTP Status : ${response.status}
- 
-Authentication Failed
- 
-Response:
- 
-${typeof json === "string" ? json : JSON.stringify(json, null, 4)}`;
- 
+                        `❌ Project Creation Failed
+
+HTTP Status : ${response.status}
+
+${typeof json === "string"
+                            ? json
+                            : JSON.stringify(json, null, 4)}`;
+
                 }
- 
+
             }
-            catch (ex) {
- 
+            catch (e) {
+
                 result.innerHTML =
                     `Request Failed
- 
-${ex.message}
- 
-If you see a CORS error in the browser console (F12 → Console), then the API does not allow direct browser requests. In that case, you'll need to call the API from a backend such as Node.js, .NET, or PHP.`;
- 
+
+${e.message}
+
+If browser shows CORS error then use Node.js backend.`;
+
             }
- 
+
         }
- 
+
     </script>
- 
+
 </body>
- 
+
 </html>
