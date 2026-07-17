@@ -83,6 +83,29 @@ const base64ToBlob = (base64: string, mimeType: string = "application/octet-stre
   return new Blob([byteArray], { type: mimeType });
 };
 
+// 🔥 Custom styles for small fonts
+const smallLabelStyles = {
+  "& .MuiInputLabel-root": {
+    fontSize: "0.7rem",
+  },
+  "& .MuiInputBase-root": {
+    fontSize: "0.75rem",
+  },
+  "& .MuiFormHelperText-root": {
+    fontSize: "0.65rem",
+  },
+  "& .MuiSelect-select": {
+    fontSize: "0.75rem",
+  },
+  "& .MuiOutlinedInput-input": {
+    fontSize: "0.75rem",
+    padding: "8px 12px",
+  },
+  "& .MuiInputLabel-shrink": {
+    fontSize: "0.7rem",
+  },
+};
+
 const CreateTask: React.FC = () => {
   // Form state
   const [taskName, setTaskName] = useState("");
@@ -557,10 +580,10 @@ const CreateTask: React.FC = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Paper sx={{ p: 3, textAlign: "center" }}>
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, fontSize: "1rem" }}>
             🔑 ProWorkflow API Key
           </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2, fontSize: "0.8rem" }}>
             Please enter your ProWorkflow API key to connect the add-in.
           </Typography>
           <Box sx={{ maxWidth: 400, mx: "auto" }}>
@@ -576,7 +599,7 @@ const CreateTask: React.FC = () => {
                   handleApiKeySubmit();
                 }
               }}
-              sx={{ mb: 1.5 }}
+              sx={{ mb: 1.5, ...smallLabelStyles }}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -594,20 +617,25 @@ const CreateTask: React.FC = () => {
               onClick={handleApiKeySubmit}
               disabled={loading || !apiKeyInput.trim()}
               startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />}
+              sx={{ fontSize: "0.75rem" }}
             >
               {loading ? "Verifying..." : "Verify & Connect"}
             </Button>
             {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
+              <Alert severity="error" sx={{ mt: 2, fontSize: "0.75rem" }}>
                 {error}
               </Alert>
             )}
           </Box>
           <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: "#f8f9fa", textAlign: "left" }}>
-            <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              sx={{ fontWeight: 600, fontSize: "0.65rem" }}
+            >
               💡 How to get your API key:
             </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5, fontSize: "0.7rem" }}>
               1. Log in to your ProWorkflow account
               <br />
               2. Go to Settings → API Keys
@@ -624,13 +652,13 @@ const CreateTask: React.FC = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Stack spacing={2}>
-          <Skeleton variant="rectangular" height={40} animation="wave" />
-          <Skeleton variant="rectangular" height={40} animation="wave" />
-          <Skeleton variant="rectangular" height={40} animation="wave" />
-          <Skeleton variant="rectangular" height={80} animation="wave" />
-          <Skeleton variant="rectangular" height={40} animation="wave" />
+          <Skeleton variant="rectangular" height={36} animation="wave" />
+          <Skeleton variant="rectangular" height={36} animation="wave" />
+          <Skeleton variant="rectangular" height={36} animation="wave" />
           <Skeleton variant="rectangular" height={60} animation="wave" />
           <Skeleton variant="rectangular" height={36} animation="wave" />
+          <Skeleton variant="rectangular" height={50} animation="wave" />
+          <Skeleton variant="rectangular" height={32} animation="wave" />
         </Stack>
       </Box>
     );
@@ -648,7 +676,7 @@ const CreateTask: React.FC = () => {
           elevation={0}
           sx={{
             p: 1,
-            mb: 2,
+            mb: 1.5,
             bgcolor: "#f8f9fa",
             border: "1px solid #e0e0e0",
             borderRadius: 1,
@@ -660,7 +688,7 @@ const CreateTask: React.FC = () => {
             sx={{ alignItems: "center", flexWrap: "wrap", mb: 0.5 }}
           >
             <Email fontSize="small" color="primary" />
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.65rem" }}>
               From:
             </Typography>
             <Chip
@@ -668,9 +696,13 @@ const CreateTask: React.FC = () => {
               size="small"
               variant="outlined"
               color="primary"
-              sx={{ height: 20, fontSize: "0.7rem" }}
+              sx={{ height: 18, fontSize: "0.6rem" }}
             />
-            <Typography variant="caption" color="textSecondary" sx={{ ml: 0.5 }}>
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              sx={{ ml: 0.5, fontSize: "0.65rem" }}
+            >
               Subject: {outlookData.subject}
             </Typography>
             <Box sx={{ flex: 1 }} />
@@ -696,7 +728,7 @@ const CreateTask: React.FC = () => {
               <Typography
                 variant="caption"
                 color="textSecondary"
-                sx={{ mb: 0.5, display: "block" }}
+                sx={{ mb: 0.5, display: "block", fontSize: "0.6rem" }}
               >
                 Email Preview:
               </Typography>
@@ -705,9 +737,9 @@ const CreateTask: React.FC = () => {
                 sx={{
                   p: 0.5,
                   bgcolor: "white",
-                  maxHeight: "100px",
+                  maxHeight: "80px",
                   overflow: "auto",
-                  fontSize: "0.75rem",
+                  fontSize: "0.7rem",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
                 }}
@@ -716,7 +748,7 @@ const CreateTask: React.FC = () => {
               </Paper>
               {outlookData.attachments && outlookData.attachments.length > 0 && (
                 <Box sx={{ mt: 0.5 }}>
-                  <Typography variant="caption" color="textSecondary">
+                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.6rem" }}>
                     Attachments: {outlookData.attachments.map((a) => a.name).join(", ")}
                   </Typography>
                 </Box>
@@ -727,9 +759,9 @@ const CreateTask: React.FC = () => {
       )}
 
       {!outlookData && !loadingOutlook && (
-        <Alert severity="info" sx={{ mb: 1.5, py: 0.5, fontSize: "0.75rem" }}>
+        <Alert severity="info" sx={{ mb: 1.5, py: 0.5, fontSize: "0.7rem" }}>
           No email selected. Please select an email in Outlook to auto-fill task details.
-          <Button size="small" onClick={handleRefreshOutlook} sx={{ ml: 1 }}>
+          <Button size="small" onClick={handleRefreshOutlook} sx={{ ml: 1, fontSize: "0.7rem" }}>
             Refresh
           </Button>
         </Alert>
@@ -737,8 +769,8 @@ const CreateTask: React.FC = () => {
 
       {loadingOutlook && (
         <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-          <CircularProgress size={16} sx={{ mr: 1 }} />
-          <Typography variant="caption" color="textSecondary">
+          <CircularProgress size={14} sx={{ mr: 1 }} />
+          <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
             Loading email data...
           </Typography>
         </Box>
@@ -747,7 +779,7 @@ const CreateTask: React.FC = () => {
       {error && (
         <Alert
           severity="error"
-          sx={{ mb: 1.5, py: 0.5, fontSize: "0.75rem" }}
+          sx={{ mb: 1.5, py: 0.5, fontSize: "0.7rem" }}
           onClose={() => setError(null)}
         >
           {error}
@@ -756,20 +788,25 @@ const CreateTask: React.FC = () => {
       {success && (
         <Alert
           severity="success"
-          sx={{ mb: 1.5, py: 0.5, fontSize: "0.75rem" }}
-          icon={<CheckCircle />}
+          sx={{ mb: 1.5, py: 0.5, fontSize: "0.7rem" }}
+          icon={<CheckCircle fontSize="small" />}
         >
           Task created successfully! 🎉
         </Alert>
       )}
 
       {draft && (
-        <Alert severity="info" sx={{ mb: 1.5, py: 0.5, fontSize: "0.75rem" }} icon={<Warning />}>
+        <Alert
+          severity="info"
+          sx={{ mb: 1.5, py: 0.5, fontSize: "0.7rem" }}
+          icon={<Warning fontSize="small" />}
+        >
           You have a saved draft. Continue editing or click Reset to clear.
         </Alert>
       )}
 
       <Stack spacing={1.5}>
+        {/* Task Name */}
         <TextField
           required
           size="small"
@@ -778,6 +815,7 @@ const CreateTask: React.FC = () => {
           value={taskName}
           onChange={(e) => setTaskName(e.target.value)}
           placeholder="Enter task name..."
+          sx={smallLabelStyles}
           slotProps={{
             input: {
               startAdornment: (
@@ -789,8 +827,9 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        <FormControl fullWidth required size="small">
-          <InputLabel>Project</InputLabel>
+        {/* Project */}
+        <FormControl fullWidth required size="small" sx={smallLabelStyles}>
+          <InputLabel sx={{ fontSize: "0.7rem" }}>Project</InputLabel>
           <Select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value as number)}
@@ -798,23 +837,26 @@ const CreateTask: React.FC = () => {
             disabled={loadingProjects}
             startAdornment={
               loadingProjects ? (
-                <CircularProgress size={16} sx={{ ml: 1 }} />
+                <CircularProgress size={14} sx={{ ml: 1 }} />
               ) : (
                 <Folder color="action" sx={{ ml: 1 }} fontSize="small" />
               )
             }
           >
-            <MenuItem value={0}>Select a project...</MenuItem>
+            <MenuItem value={0} sx={{ fontSize: "0.75rem" }}>
+              Select a project...
+            </MenuItem>
             {projects.map((project) => (
-              <MenuItem key={project.id} value={project.id}>
+              <MenuItem key={project.id} value={project.id} sx={{ fontSize: "0.75rem" }}>
                 {project.name}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <FormControl fullWidth size="small">
-          <InputLabel>Assignee</InputLabel>
+        {/* Assignee */}
+        <FormControl fullWidth size="small" sx={smallLabelStyles}>
+          <InputLabel sx={{ fontSize: "0.7rem" }}>Assignee</InputLabel>
           <Select
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value as number)}
@@ -822,30 +864,34 @@ const CreateTask: React.FC = () => {
             disabled={loadingContacts}
             startAdornment={
               loadingContacts ? (
-                <CircularProgress size={16} sx={{ ml: 1 }} />
+                <CircularProgress size={14} sx={{ ml: 1 }} />
               ) : (
                 <Person color="action" sx={{ ml: 1 }} fontSize="small" />
               )
             }
           >
-            <MenuItem value={0}>Unassigned</MenuItem>
+            <MenuItem value={0} sx={{ fontSize: "0.75rem" }}>
+              Unassigned
+            </MenuItem>
             {contacts.map((contact) => (
-              <MenuItem key={contact.id} value={contact.id}>
+              <MenuItem key={contact.id} value={contact.id} sx={{ fontSize: "0.75rem" }}>
                 {contact.name}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
+        {/* Description */}
         <TextField
           fullWidth
           size="small"
           multiline
-          rows={3}
+          rows={2}
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Task description..."
+          sx={smallLabelStyles}
           slotProps={{
             input: {
               startAdornment: (
@@ -857,18 +903,25 @@ const CreateTask: React.FC = () => {
           }}
         />
 
+        {/* Priority & Due Date */}
         <Stack direction="row" spacing={1.5}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Priority</InputLabel>
+          <FormControl fullWidth size="small" sx={smallLabelStyles}>
+            <InputLabel sx={{ fontSize: "0.7rem" }}>Priority</InputLabel>
             <Select
               value={priority}
               onChange={(e) => setPriority(e.target.value as "Low" | "Medium" | "High")}
               label="Priority"
               startAdornment={<PriorityHigh fontSize="small" color="action" sx={{ ml: 1 }} />}
             >
-              <MenuItem value="Low">Low</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Low" sx={{ fontSize: "0.75rem" }}>
+                Low
+              </MenuItem>
+              <MenuItem value="Medium" sx={{ fontSize: "0.75rem" }}>
+                Medium
+              </MenuItem>
+              <MenuItem value="High" sx={{ fontSize: "0.75rem" }}>
+                High
+              </MenuItem>
             </Select>
           </FormControl>
 
@@ -879,6 +932,7 @@ const CreateTask: React.FC = () => {
             label="Due Date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+            sx={smallLabelStyles}
             slotProps={{
               input: {
                 startAdornment: (
@@ -891,8 +945,9 @@ const CreateTask: React.FC = () => {
           />
         </Stack>
 
+        {/* Options */}
         <Paper variant="outlined" sx={{ p: 1 }}>
-          <Stack spacing={1}>
+          <Stack spacing={0.5}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -903,7 +958,7 @@ const CreateTask: React.FC = () => {
                 />
               }
               label={
-                <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
                   <PriorityHigh fontSize="small" color="error" sx={{ verticalAlign: "middle" }} />
                   Mark as Urgent
                 </Typography>
@@ -922,7 +977,7 @@ const CreateTask: React.FC = () => {
               label={
                 <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                   <AttachFile fontSize="small" />
-                  <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                  <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
                     Include email attachments{getAttachmentsLabel()}
                   </Typography>
                 </Stack>
@@ -931,10 +986,11 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Paper>
 
+        {/* Keyboard shortcuts */}
         <Typography
           variant="caption"
           color="textSecondary"
-          sx={{ textAlign: "center", fontSize: "0.7rem" }}
+          sx={{ textAlign: "center", fontSize: "0.6rem" }}
         >
           <Stack
             direction="row"
@@ -947,6 +1003,7 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Typography>
 
+        {/* Buttons */}
         <Stack direction="row" spacing={1.5} sx={{ justifyContent: "flex-end" }}>
           <Button
             variant="outlined"
@@ -957,6 +1014,7 @@ const CreateTask: React.FC = () => {
             }}
             disabled={loading}
             startIcon={<Cancel fontSize="small" />}
+            sx={{ fontSize: "0.7rem" }}
           >
             Reset
           </Button>
@@ -965,35 +1023,41 @@ const CreateTask: React.FC = () => {
             variant="contained"
             size="small"
             disabled={loading || !taskName.trim() || !projectId}
-            startIcon={loading ? <CircularProgress size={16} /> : <Send fontSize="small" />}
+            startIcon={loading ? <CircularProgress size={14} /> : <Send fontSize="small" />}
             onClick={handleSubmitClick}
+            sx={{ fontSize: "0.7rem" }}
           >
             {loading ? "Creating..." : "Create Task"}
           </Button>
         </Stack>
       </Stack>
 
+      {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
-        <DialogTitle sx={{ fontSize: "1rem" }}>Confirm Action</DialogTitle>
+        <DialogTitle sx={{ fontSize: "0.9rem" }}>Confirm Action</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ fontSize: "0.9rem" }}>
+          <DialogContentText sx={{ fontSize: "0.8rem" }}>
             {pendingAction === "submit"
               ? "Are you sure you want to create this task?"
               : "Are you sure you want to reset all form fields? This will clear your draft."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowConfirmDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowConfirmDialog(false)} sx={{ fontSize: "0.75rem" }}>
+            Cancel
+          </Button>
           <Button
             onClick={handleConfirmAction}
             variant="contained"
             color={pendingAction === "submit" ? "primary" : "error"}
+            sx={{ fontSize: "0.75rem" }}
           >
             {pendingAction === "submit" ? "Create" : "Reset"}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Toast */}
       <Snackbar
         open={toastOpen}
         autoHideDuration={4000}
@@ -1004,7 +1068,7 @@ const CreateTask: React.FC = () => {
           onClose={handleToastClose}
           severity={toastSeverity}
           variant="filled"
-          sx={{ fontSize: "0.8rem" }}
+          sx={{ fontSize: "0.75rem" }}
         >
           {toastMessage}
         </Alert>
