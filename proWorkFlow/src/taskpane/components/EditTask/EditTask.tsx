@@ -1,5 +1,3 @@
-// src/taskpane/components/EditTask/EditTask.tsx
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
@@ -181,7 +179,7 @@ const EditTask: React.FC = () => {
     return [];
   };
 
-  // 🔥 NEW: Direct fetch for tasks (items) using /projects/items?projectid=
+  // 🔥 Direct fetch for tasks using /projects/items?projectid=
   const fetchTasksDirectly = async (projectId: number): Promise<Task[]> => {
     const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
     if (!API_KEY) {
@@ -208,7 +206,6 @@ const EditTask: React.FC = () => {
     const jsonData = await response.json();
     console.log(`✅ Direct fetch tasks response (project ${projectId}):`, jsonData);
 
-    // Handle both {data: [...]} and direct array
     const data = jsonData.data || jsonData;
     if (Array.isArray(data)) {
       return data.map((item: any) => ({
@@ -221,7 +218,6 @@ const EditTask: React.FC = () => {
         duedate: item.duedate || item.due_date || "",
         urgent: item.urgent || false,
         status: item.status || "",
-        // Pass through any other fields
         ...item,
       }));
     }
@@ -237,7 +233,6 @@ const EditTask: React.FC = () => {
       setProjects(projectsData);
       console.log(`📦 Loaded ${projectsData.length} projects via direct fetch`);
 
-      // Users via service (unchanged)
       const usersData = await proWorkflowApi.getUsers();
       setUsers(usersData);
       console.log(`👤 Loaded ${usersData.length} users via service`);
@@ -459,16 +454,17 @@ const EditTask: React.FC = () => {
   // ----- Render -----
   if (!isApiKeySet && !loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Paper sx={{ p: 4, textAlign: "center" }}>
+      <Box sx={{ p: 2 }}>
+        <Paper sx={{ p: 3, textAlign: "center" }}>
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
             🔑 ProWorkflow API Key Required
           </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Please set your API key in the <strong>"New Task"</strong> tab first.
           </Typography>
           <Button
             variant="contained"
+            size="small"
             onClick={() => {
               const tabs = document.querySelectorAll('[role="tab"]');
               if (tabs.length > 0) {
@@ -486,9 +482,9 @@ const EditTask: React.FC = () => {
   if (loading) {
     return (
       <Box sx={{ p: 2 }}>
-        <Stack spacing={3}>
-          <Skeleton variant="rectangular" height={56} animation="wave" />
-          <Skeleton variant="rectangular" height={200} animation="wave" />
+        <Stack spacing={2}>
+          <Skeleton variant="rectangular" height={40} animation="wave" />
+          <Skeleton variant="rectangular" height={150} animation="wave" />
         </Stack>
       </Box>
     );
@@ -496,47 +492,55 @@ const EditTask: React.FC = () => {
 
   return (
     <Box sx={{ maxWidth: "100%" }}>
-      {/* Header */}
-      <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 3 }}>
-        <Assignment color="primary" />
-        <Typography variant="h6" sx={{ flex: 1 }}>
+      {/* Compact Header */}
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
+        <Assignment color="primary" fontSize="small" />
+        <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 600, fontSize: "0.95rem" }}>
           Edit Existing Task
         </Typography>
         <Tooltip title="Refresh data">
           <IconButton onClick={handleRefresh} size="small">
-            <Refresh />
+            <Refresh fontSize="small" />
           </IconButton>
         </Tooltip>
       </Stack>
 
-      <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+      <Typography variant="body2" color="textSecondary" sx={{ mb: 1.5, fontSize: "0.8rem" }}>
         Select a project, then a task to view and edit its details.
       </Typography>
 
-      {/* Error/Success Alerts */}
+      {/* Alerts compact */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{ mb: 1, py: 0.5, fontSize: "0.8rem" }}
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(false)}>
-          <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
-            <CheckCircle />
+        <Alert
+          severity="success"
+          sx={{ mb: 1, py: 0.5, fontSize: "0.8rem" }}
+          onClose={() => setSuccess(false)}
+        >
+          <Stack direction="row" sx={{ alignItems: "center" }} spacing={0.5}>
+            <CheckCircle fontSize="small" />
             <span>Task updated successfully! ✅</span>
           </Stack>
         </Alert>
       )}
 
-      <Stack spacing={3}>
+      <Stack spacing={1.5}>
         {/* Project Selection */}
-        <FormControl fullWidth>
+        <FormControl fullWidth size="small">
           <InputLabel>Select Project</InputLabel>
           <Select
             value={selectedProjectId}
             onChange={(e) => handleProjectChange(e.target.value as number)}
             label="Select Project"
-            startAdornment={<Folder color="action" sx={{ mr: 1 }} />}
+            startAdornment={<Folder color="action" sx={{ mr: 1 }} fontSize="small" />}
           >
             <MenuItem value={0}>Select a project...</MenuItem>
             {projects.map((project) => (
@@ -547,16 +551,16 @@ const EditTask: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Task Selection - Simple List */}
+        {/* Task Selection - Compact List */}
         {selectedProjectId > 0 && (
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "#fafafa" }}>
-            <Stack spacing={2}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#fafafa" }}>
+            <Stack spacing={1}>
               <Stack
                 direction="row"
-                spacing={2}
-                sx={{ alignItems: "center", pb: 1, borderBottom: "1px solid #e0e0e0" }}
+                spacing={1}
+                sx={{ alignItems: "center", pb: 0.5, borderBottom: "1px solid #e0e0e0" }}
               >
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: "0.8rem" }}>
                   Available Tasks
                 </Typography>
                 <Chip
@@ -564,10 +568,10 @@ const EditTask: React.FC = () => {
                   size="small"
                   color="primary"
                   variant="filled"
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, height: 20, fontSize: "0.7rem" }}
                 />
                 <Box sx={{ flex: 1 }} />
-                {loadingTasks && <CircularProgress size={20} />}
+                {loadingTasks && <CircularProgress size={16} />}
               </Stack>
 
               <TextField
@@ -589,30 +593,30 @@ const EditTask: React.FC = () => {
               />
 
               {!loadingTasks && filteredTasks.length > 0 ? (
-                <Box sx={{ maxHeight: "200px", overflow: "auto" }}>
+                <Box sx={{ maxHeight: "180px", overflow: "auto" }}>
                   {filteredTasks.map((task) => (
                     <Card
                       key={task.id}
                       variant="outlined"
                       sx={{
-                        mb: 1,
+                        mb: 0.5,
                         cursor: "pointer",
                         borderColor: selectedTaskId === task.id ? "primary.main" : "#e0e0e0",
                         bgcolor: selectedTaskId === task.id ? "primary.light" : "white",
                         transition: "all 0.2s ease",
                         "&:hover": {
                           borderColor: "primary.main",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                         },
                       }}
                       onClick={() => handleTaskSelect(task.id)}
                     >
-                      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                      <CardContent sx={{ p: 1, "&:last-child": { pb: 1 } }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Avatar
                             sx={{
-                              width: 36,
-                              height: 36,
+                              width: 28,
+                              height: 28,
                               bgcolor: getPriorityColor(task.priority || ""),
                               flexShrink: 0,
                             }}
@@ -627,14 +631,17 @@ const EditTask: React.FC = () => {
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography
                               variant="body2"
-                              sx={{ fontWeight: selectedTaskId === task.id ? 600 : 500 }}
+                              sx={{
+                                fontWeight: selectedTaskId === task.id ? 600 : 500,
+                                fontSize: "0.8rem",
+                              }}
                             >
                               {task.name}
                             </Typography>
                             <Stack
                               direction="row"
-                              spacing={1}
-                              sx={{ mt: 0.5, alignItems: "center", flexWrap: "wrap" }}
+                              spacing={0.5}
+                              sx={{ mt: 0.25, alignItems: "center", flexWrap: "wrap" }}
                             >
                               <Chip
                                 label={getStatusLabel(task.status)}
@@ -643,7 +650,7 @@ const EditTask: React.FC = () => {
                                   bgcolor: getStatusColor(task.status || ""),
                                   color: "white",
                                   fontSize: "0.6rem",
-                                  height: 20,
+                                  height: 18,
                                 }}
                               />
                               {task.urgent && (
@@ -651,16 +658,24 @@ const EditTask: React.FC = () => {
                                   label="Urgent"
                                   size="small"
                                   color="error"
-                                  sx={{ fontSize: "0.6rem", height: 20 }}
+                                  sx={{ fontSize: "0.6rem", height: 18 }}
                                 />
                               )}
                               {task.assignee && (
-                                <Typography variant="caption" color="textSecondary">
+                                <Typography
+                                  variant="caption"
+                                  color="textSecondary"
+                                  sx={{ fontSize: "0.65rem" }}
+                                >
                                   Assigned to: {getUserName(task.assignee)}
                                 </Typography>
                               )}
                               {task.duedate && (
-                                <Typography variant="caption" color="textSecondary">
+                                <Typography
+                                  variant="caption"
+                                  color="textSecondary"
+                                  sx={{ fontSize: "0.65rem" }}
+                                >
                                   Due: {task.duedate}
                                 </Typography>
                               )}
@@ -668,7 +683,7 @@ const EditTask: React.FC = () => {
                           </Box>
 
                           {selectedTaskId === task.id && (
-                            <CheckCircle color="primary" sx={{ fontSize: 20, flexShrink: 0 }} />
+                            <CheckCircle color="primary" sx={{ fontSize: 16, flexShrink: 0 }} />
                           )}
                         </Stack>
                       </CardContent>
@@ -677,9 +692,9 @@ const EditTask: React.FC = () => {
                 </Box>
               ) : (
                 !loadingTasks && (
-                  <Box sx={{ py: 3, textAlign: "center" }}>
-                    <Info color="action" sx={{ fontSize: 36, opacity: 0.5, mb: 1 }} />
-                    <Typography variant="body2" color="textSecondary">
+                  <Box sx={{ py: 2, textAlign: "center" }}>
+                    <Info color="action" sx={{ fontSize: 28, opacity: 0.5, mb: 0.5 }} />
+                    <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.8rem" }}>
                       {searchTerm
                         ? `No tasks match "${searchTerm}"`
                         : "No tasks available in this project"}
@@ -691,31 +706,33 @@ const EditTask: React.FC = () => {
           </Paper>
         )}
 
-        {/* Edit Form */}
+        {/* Edit Form - Compact */}
         {isEditMode && originalTask && (
           <>
             <Divider />
-            <Paper elevation={1} sx={{ p: 3 }}>
-              <Stack spacing={3}>
-                <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            <Paper elevation={1} sx={{ p: 2 }}>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <Badge color="primary" variant="dot">
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: "0.85rem" }}>
                       Editing: {originalTask.name}
                     </Typography>
                   </Badge>
                   <Box sx={{ flex: 1 }} />
                   <Chip
-                    icon={<History />}
+                    icon={<History fontSize="small" />}
                     label={`ID: #${originalTask.id}`}
                     size="small"
                     variant="outlined"
+                    sx={{ height: 24, fontSize: "0.7rem" }}
                   />
                   <Button
                     variant="outlined"
                     color="error"
                     size="small"
-                    startIcon={<Delete />}
+                    startIcon={<Delete fontSize="small" />}
                     onClick={() => setShowDeleteDialog(true)}
+                    sx={{ fontSize: "0.7rem" }}
                   >
                     Delete
                   </Button>
@@ -723,7 +740,7 @@ const EditTask: React.FC = () => {
 
                 <Divider />
 
-                <FormControl fullWidth>
+                <FormControl fullWidth size="small">
                   <InputLabel>Status</InputLabel>
                   <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
                     <MenuItem value="">Not Set</MenuItem>
@@ -738,6 +755,7 @@ const EditTask: React.FC = () => {
                 <TextField
                   required
                   fullWidth
+                  size="small"
                   label="Task Name"
                   value={taskName}
                   onChange={(e) => setTaskName(e.target.value)}
@@ -746,20 +764,20 @@ const EditTask: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Title color="action" />
+                          <Title fontSize="small" color="action" />
                         </InputAdornment>
                       ),
                     },
                   }}
                 />
 
-                <FormControl fullWidth>
+                <FormControl fullWidth size="small">
                   <InputLabel>Assignee</InputLabel>
                   <Select
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value as number)}
                     label="Assignee"
-                    startAdornment={<Person color="action" sx={{ mr: 1 }} />}
+                    startAdornment={<Person color="action" sx={{ mr: 1 }} fontSize="small" />}
                   >
                     <MenuItem value={0}>Unassigned</MenuItem>
                     {users.map((user) => (
@@ -772,8 +790,9 @@ const EditTask: React.FC = () => {
 
                 <TextField
                   fullWidth
+                  size="small"
                   multiline
-                  rows={3}
+                  rows={2}
                   label="Description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -782,22 +801,24 @@ const EditTask: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Description color="action" sx={{ mr: 1, mt: 1 }} />
+                          <Description fontSize="small" color="action" sx={{ mr: 0.5 }} />
                         </InputAdornment>
                       ),
                     },
                   }}
                 />
 
-                <Grid container spacing={2}>
+                <Grid container spacing={1.5}>
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <FormControl fullWidth>
+                    <FormControl fullWidth size="small">
                       <InputLabel>Priority</InputLabel>
                       <Select
                         value={priority}
                         onChange={(e) => setPriority(e.target.value as "Low" | "Medium" | "High")}
                         label="Priority"
-                        startAdornment={<PriorityHigh color="action" sx={{ mr: 1 }} />}
+                        startAdornment={
+                          <PriorityHigh fontSize="small" color="action" sx={{ mr: 1 }} />
+                        }
                       >
                         <MenuItem value="Low">Low</MenuItem>
                         <MenuItem value="Medium">Medium</MenuItem>
@@ -808,6 +829,7 @@ const EditTask: React.FC = () => {
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
+                      size="small"
                       type="date"
                       label="Due Date"
                       value={dueDate}
@@ -816,7 +838,7 @@ const EditTask: React.FC = () => {
                         input: {
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Schedule color="action" sx={{ mr: 1 }} />
+                              <Schedule fontSize="small" color="action" />
                             </InputAdornment>
                           ),
                         },
@@ -831,30 +853,35 @@ const EditTask: React.FC = () => {
                       checked={isUrgent}
                       onChange={(e) => setIsUrgent(e.target.checked)}
                       color="error"
+                      size="small"
                     />
                   }
                   label={
-                    <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
+                    <Stack direction="row" sx={{ alignItems: "center" }} spacing={0.5}>
                       <Warning color="error" fontSize="small" />
-                      <Typography variant="body2">Mark as Urgent</Typography>
+                      <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                        Mark as Urgent
+                      </Typography>
                     </Stack>
                   }
                 />
 
-                <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
+                <Stack direction="row" spacing={1.5} sx={{ justifyContent: "flex-end" }}>
                   <Button
                     variant="outlined"
+                    size="small"
                     onClick={handleCancel}
                     disabled={saving}
-                    startIcon={<Cancel />}
+                    startIcon={<Cancel fontSize="small" />}
                   >
                     Cancel
                   </Button>
                   <Button
                     variant="contained"
+                    size="small"
                     onClick={handleSave}
                     disabled={saving || !taskName.trim()}
-                    startIcon={saving ? <CircularProgress size={20} /> : <Save />}
+                    startIcon={saving ? <CircularProgress size={16} /> : <Save fontSize="small" />}
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
@@ -865,7 +892,11 @@ const EditTask: React.FC = () => {
         )}
 
         {selectedProjectId === 0 && (
-          <Alert severity="info" icon={<Info />}>
+          <Alert
+            severity="info"
+            icon={<Info fontSize="small" />}
+            sx={{ py: 0.5, fontSize: "0.8rem" }}
+          >
             Please select a project to view and edit tasks.
           </Alert>
         )}
@@ -873,9 +904,9 @@ const EditTask: React.FC = () => {
 
       {/* Delete Dialog */}
       <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
-        <DialogTitle>Delete Task</DialogTitle>
+        <DialogTitle sx={{ fontSize: "1rem" }}>Delete Task</DialogTitle>
         <DialogContent>
-          <DialogContentText>
+          <DialogContentText sx={{ fontSize: "0.9rem" }}>
             Are you sure you want to delete <strong>"{originalTask?.name}"</strong>? This action
             cannot be undone.
           </DialogContentText>
@@ -887,7 +918,7 @@ const EditTask: React.FC = () => {
             color="error"
             variant="contained"
             disabled={deleting}
-            startIcon={deleting ? <CircularProgress size={20} /> : <Delete />}
+            startIcon={deleting ? <CircularProgress size={16} /> : <Delete />}
           >
             {deleting ? "Deleting..." : "Delete"}
           </Button>
@@ -901,7 +932,12 @@ const EditTask: React.FC = () => {
         onClose={handleToastClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert onClose={handleToastClose} severity={toastSeverity} variant="filled">
+        <Alert
+          onClose={handleToastClose}
+          severity={toastSeverity}
+          variant="filled"
+          sx={{ fontSize: "0.8rem" }}
+        >
           {toastMessage}
         </Alert>
       </Snackbar>
