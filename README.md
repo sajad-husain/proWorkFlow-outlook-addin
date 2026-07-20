@@ -6,13 +6,13 @@ Microsoft Office add-in for Outlook that creates and edits tasks in [ProWorkflow
 
 ## Features
 
-- **Create Tasks from Emails** — Auto-fills task name from subject, builds description from body with sender/recipient metadata, attaches email attachments
-- **Edit & Manage Tasks** — Browse, search, update status, reassign, and delete tasks per project
+- **Create Tasks from Emails** — Auto-fills task name from subject, builds description from body with sender/recipient metadata, attaches email attachments, with full project/assignee/priority/status selection
+- **Edit & Manage Tasks** — Browse, search, update status, reassign, edit description/priority/due date, and delete tasks per project
 - **API Key Authentication** — First-run setup dialog that verifies and persists your ProWorkflow API key in localStorage
 - **Draft Auto-Save** — Create form state persists to localStorage with debounce so you never lose work
 - **Email Preview** — Collapsible email body preview with attachment listing inside the task pane
 - **Keyboard Shortcuts** — Ctrl+Enter to submit, Escape to reset
-- **Toast Notifications** — Reusable snackbar component for success/error feedback
+- **Toast Notifications** — Snackbar feedback for success/error actions
 
 ---
 
