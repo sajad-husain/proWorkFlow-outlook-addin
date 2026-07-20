@@ -46,7 +46,6 @@ import {
   Warning,
   Key as KeyIcon,
 } from "@mui/icons-material";
-import { proWorkflowApi, Project, User, setApiKey } from "../../services/proworkflow";
 import {
   getOutlookItemDataAsync,
   OutlookItemData,
@@ -56,7 +55,7 @@ import {
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 // ========================
-// Types
+// LOCAL TYPES (No external imports)
 // ========================
 
 interface DraftData {
@@ -85,8 +84,25 @@ interface CreateTaskResponse {
   id: number;
 }
 
+// Local Project type (replacing import from proworkflow.ts)
+interface Project {
+  id: number;
+  name: string;
+  // Add other fields if needed
+}
+
+// Local User type (replacing import from proworkflow.ts)
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  companyname: string;
+}
+
 // ========================
-// Constants
+// CONSTANTS
 // ========================
 
 const PRIORITY_MAP: Record<"Low" | "Medium" | "High", number> = {
@@ -95,7 +111,6 @@ const PRIORITY_MAP: Record<"Low" | "Medium" | "High", number> = {
   High: 3,
 };
 
-// Custom styles
 const smallLabelStyles = {
   "& .MuiInputLabel-root": { fontSize: "0.7rem" },
   "& .MuiInputBase-root": { fontSize: "0.75rem" },
@@ -106,7 +121,7 @@ const smallLabelStyles = {
 };
 
 // ========================
-// Main Component
+// MAIN COMPONENT
 // ========================
 
 const CreateTask: React.FC = () => {
@@ -150,16 +165,142 @@ const CreateTask: React.FC = () => {
 
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
-  // ---- Toast Helper ----
-  const showToast = useCallback((message: string, severity: typeof toastSeverity) => {
-    setToastMessage(message);
-    setToastSeverity(severity);
-    setToastOpen(true);
-  }, []);
+  // ========================
+  // LOCAL API FUNCTIONS (SELF-CONTAINED)
+  // ========================
 
-  const handleToastClose = () => setToastOpen(false);
+  // Get API key from localStorage
+  const getApiKey = (): string => {
+    return localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
+  };
 
-  // ---- Payload Builder (No Object.entries) ----
+  // Test API key - self-contained
+  const testApiKey = async (key: string): Promise<boolean> => {
+    try {
+      const url = "https://api.proworkflow.com/api/v4/projects?limit=1";
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { apikey: key, Accept: "application/json" },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // Fetch projects - self-contained
+  const fetchProjects = async (): Promise<Project[]> => {
+    const API_KEY = getApiKey();
+    if (!API_KEY) throw new Error("API key not set");
+
+    const url = "https://api.proworkflow.com/api/v4/projects";
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { apikey: API_KEY, Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to fetch projects (${response.status}): ${text}`);
+    }
+
+    const json = await response.json();
+    const data = json.data || json;
+    if (!Array.isArray(data)) return [];
+    return data.map((p: any) => ({ id: p.id, name: p.name }));
+  };
+
+  // Fetch contacts - self-contained
+  const fetchContacts = async (): Promise<User[]> => {
+    const API_KEY = getApiKey();
+    if (!API_KEY) throw new Error("API key not set");
+
+    const url = "https://api.proworkflow.com/api/v4/contacts";
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { apikey: API_KEY, Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to fetch contacts (${response.status}): ${text}`);
+    }
+
+    const json = await response.json();
+    const data = json.data || json;
+    if (!Array.isArray(data)) return [];
+
+    return data.map((c: any) => {
+      let name = "Unnamed Contact";
+      if (c.firstname && c.lastname) name = `${c.firstname} ${c.lastname}`;
+      else if (c.firstname) name = c.firstname;
+      else if (c.lastname) name = c.lastname;
+      else if (c.companyname) name = c.companyname;
+      else if (c.fullname) name = c.fullname;
+      return {
+        id: c.id,
+        name,
+        email: c.email || "",
+        firstname: c.firstname || "",
+        lastname: c.lastname || "",
+        companyname: c.companyname || "",
+      };
+    });
+  };
+
+  // Create task API - self-contained
+  const createTaskDirectly = async (payload: CreateTaskPayload): Promise<CreateTaskResponse> => {
+    const API_KEY = getApiKey();
+    if (!API_KEY) throw new Error("API key is not set.");
+
+    const url = "https://api.proworkflow.com/api/v4/projects/items";
+    const body = JSON.stringify(payload);
+
+    console.group("📡 Create Task Request");
+    console.log("URL:", url);
+    console.log("Payload:", payload);
+    console.groupEnd();
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: API_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body,
+    });
+
+    const text = await response.text();
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = text;
+    }
+
+    console.group("📡 Create Task Response");
+    console.log("Status:", response.status);
+    console.log("Response:", json);
+    console.groupEnd();
+
+    if (!response.ok) {
+      let msg = `Failed (${response.status})`;
+      if (json?.error) msg = json.error;
+      else if (json?.message) msg = json.message;
+      else if (typeof json === "string") msg = json;
+      throw new Error(msg);
+    }
+
+    const taskId = json?.data?.id ?? json?.id;
+    if (!taskId) throw new Error("No ID returned");
+    return { id: taskId };
+  };
+
+  // ========================
+  // PAYLOAD BUILDER
+  // ========================
+
   const buildPayload = useCallback((): CreateTaskPayload => {
     const payload: Partial<CreateTaskPayload> = {
       projectid: projectId,
@@ -176,7 +317,7 @@ const CreateTask: React.FC = () => {
     }
     if (isUrgent) payload.urgent = true;
 
-    // Remove undefined, null, empty string
+    // Clean undefined, null, empty string
     const cleaned: CreateTaskPayload = {} as CreateTaskPayload;
     for (const key in payload) {
       const value = payload[key as keyof typeof payload];
@@ -187,95 +328,22 @@ const CreateTask: React.FC = () => {
     return cleaned;
   }, [projectId, taskName, description, priority, assigneeId, dueDate, isUrgent]);
 
-  // ---- API Call (Direct JSON) ----
-  const createTaskDirectly = useCallback(
-    async (payload: CreateTaskPayload): Promise<CreateTaskResponse> => {
-      const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
-      if (!API_KEY) throw new Error("API key is not set.");
+  // ========================
+  // TOAST HELPER
+  // ========================
 
-      const url = "https://api.proworkflow.com/api/v4/projects/items";
-      const body = JSON.stringify(payload);
-
-      console.group("📡 Create Task Request");
-      console.log("URL:", url);
-      console.log("Payload:", payload);
-      console.groupEnd();
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          apikey: API_KEY,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body,
-      });
-
-      const text = await response.text();
-      let json: any;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        json = text;
-      }
-
-      console.group("📡 Create Task Response");
-      console.log("Status:", response.status);
-      console.log("Response:", json);
-      console.groupEnd();
-
-      if (!response.ok) {
-        let msg = `Failed (${response.status})`;
-        if (json?.error) msg = json.error;
-        else if (json?.message) msg = json.message;
-        else if (typeof json === "string") msg = json;
-        throw new Error(msg);
-      }
-
-      const taskId = json?.data?.id ?? json?.id;
-      if (!taskId) throw new Error("No ID returned");
-      return { id: taskId };
-    },
-    []
-  );
-
-  // ---- Fetch Contacts ----
-  const fetchContactsDirectly = useCallback(async (): Promise<User[]> => {
-    const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
-    if (!API_KEY) throw new Error("API key not set");
-
-    const url = "https://api.proworkflow.com/api/v4/contacts";
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { apikey: API_KEY, Accept: "application/json" },
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to fetch contacts (${response.status}): ${text}`);
-    }
-    const json = await response.json();
-    const data = json.data || json;
-    if (!Array.isArray(data)) return [];
-    return data.map((c: any) => {
-      let name = "Unnamed Contact";
-      if (c.firstname && c.lastname) name = `${c.firstname} ${c.lastname}`;
-      else if (c.firstname) name = c.firstname;
-      else if (c.lastname) name = c.lastname;
-      else if (c.companyname) name = c.companyname;
-      else if (c.fullname) name = c.fullname;
-      return {
-        id: c.id,
-        name,
-        email: c.email || "",
-        firstname: c.firstname || "",
-        lastname: c.lastname || "",
-        companyname: c.companyname || "",
-        ...c,
-      };
-    });
+  const showToast = useCallback((message: string, severity: typeof toastSeverity) => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
   }, []);
 
-  // ---- Load Outlook ----
+  const handleToastClose = () => setToastOpen(false);
+
+  // ========================
+  // LOAD OUTLOOK DATA
+  // ========================
+
   const loadOutlookDataInternal = useCallback(async () => {
     setLoadingOutlook(true);
     try {
@@ -292,7 +360,10 @@ const CreateTask: React.FC = () => {
     }
   }, [draft, taskName, description]);
 
-  // ---- Load Draft ----
+  // ========================
+  // LOAD DRAFT
+  // ========================
+
   const loadDraftInternal = useCallback(() => {
     if (draft && isFirstLoad.current) {
       setTaskName(draft.taskName || "");
@@ -307,69 +378,82 @@ const CreateTask: React.FC = () => {
     }
   }, [draft]);
 
-  // ---- Load All Data ----
+  // ========================
+  // LOAD ALL DATA
+  // ========================
+
   const loadAllData = useCallback(async () => {
     setLoadingData(true);
     setError(null);
     try {
       setLoadingProjects(true);
       setLoadingContacts(true);
-      const [projectsData, contactsData] = await Promise.all([
-        proWorkflowApi.getProjects(),
-        fetchContactsDirectly(),
-      ]);
+
+      const [projectsData, contactsData] = await Promise.all([fetchProjects(), fetchContacts()]);
+
       setProjects(projectsData);
       setContacts(contactsData);
       setLoadingProjects(false);
       setLoadingContacts(false);
+
       await loadOutlookDataInternal();
       loadDraftInternal();
     } catch (err: any) {
-      setError(err.message || "Failed to load data");
+      const errorMsg = err.message || "Failed to load data. Please check your API key.";
+      setError(errorMsg);
       console.error(err);
       setLoadingProjects(false);
       setLoadingContacts(false);
     } finally {
       setLoadingData(false);
     }
-  }, [fetchContactsDirectly, loadOutlookDataInternal, loadDraftInternal]);
+  }, [loadOutlookDataInternal, loadDraftInternal]);
 
-  // ---- Refresh Outlook ----
+  // ========================
+  // REFRESH OUTLOOK
+  // ========================
+
   const handleRefreshOutlook = useCallback(() => {
     loadOutlookDataInternal();
     showToast("Email data refreshed", "info");
   }, [loadOutlookDataInternal, showToast]);
 
-  // ---- API Key Submit ----
+  // ========================
+  // API KEY SUBMIT
+  // ========================
+
   const handleApiKeySubmit = useCallback(async () => {
     const trimmed = apiKeyInput.trim();
     if (!trimmed) {
       showToast("Enter a valid API key", "error");
       return;
     }
+
     setLoading(true);
     try {
-      setApiKey(trimmed);
-      const valid = await proWorkflowApi.testApiKey(trimmed);
-      if (valid) {
+      const isValid = await testApiKey(trimmed);
+      if (isValid) {
         localStorage.setItem("proworkflow-api-key", trimmed);
         setIsApiKeySet(true);
         setError(null);
         await loadAllData();
         showToast("API key verified! 🎉", "success");
       } else {
-        setError("Invalid API key");
+        setError("Invalid API key. Please check and try again.");
         showToast("Invalid API key", "error");
       }
     } catch (err) {
-      setError("Verification failed");
-      showToast("Verification failed", "error");
+      setError("Failed to verify API key. Please try again.");
+      showToast("Failed to verify API key", "error");
     } finally {
       setLoading(false);
     }
   }, [apiKeyInput, loadAllData, showToast]);
 
-  // ---- Submit Click ----
+  // ========================
+  // SUBMIT CLICK
+  // ========================
+
   const handleSubmitClick = useCallback(() => {
     if (taskName.trim() && projectId) {
       setShowConfirmDialog(true);
@@ -379,7 +463,10 @@ const CreateTask: React.FC = () => {
     }
   }, [taskName, projectId, showToast]);
 
-  // ---- Confirm Action ----
+  // ========================
+  // CONFIRM ACTION
+  // ========================
+
   const handleConfirmAction = useCallback(() => {
     setShowConfirmDialog(false);
     if (pendingAction === "submit") handleSubmit();
@@ -387,7 +474,10 @@ const CreateTask: React.FC = () => {
     setPendingAction(null);
   }, [pendingAction]);
 
-  // ---- Submit Handler ----
+  // ========================
+  // SUBMIT HANDLER
+  // ========================
+
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
@@ -419,8 +509,10 @@ const CreateTask: React.FC = () => {
         console.groupEnd();
 
         const result = await createTaskDirectly(payload);
+
         if (includeAttachments && outlookData?.attachments?.length) {
           console.log("📎 Would upload", outlookData.attachments.length, "attachments");
+          // Attachment upload logic can be added here
         }
 
         setSuccess(true);
@@ -433,8 +525,9 @@ const CreateTask: React.FC = () => {
         setDraft(null);
         setTimeout(() => setSuccess(false), 5000);
       } catch (err: any) {
-        setError(err.message || "Failed to create task");
-        showToast(err.message || "Failed to create task", "error");
+        const errorMsg = err.message || "Failed to create task";
+        setError(errorMsg);
+        showToast(errorMsg, "error");
         console.error(err);
       } finally {
         setLoading(false);
@@ -445,7 +538,6 @@ const CreateTask: React.FC = () => {
       projectId,
       dueDate,
       buildPayload,
-      createTaskDirectly,
       includeAttachments,
       outlookData,
       showToast,
@@ -453,7 +545,10 @@ const CreateTask: React.FC = () => {
     ]
   );
 
-  // ---- Reset Handler ----
+  // ========================
+  // RESET HANDLER
+  // ========================
+
   const handleReset = useCallback(() => {
     setTaskName("");
     setProjectId(0);
@@ -473,15 +568,20 @@ const CreateTask: React.FC = () => {
     showToast("Form reset", "info");
   }, [outlookData, showToast, setDraft]);
 
-  // ---- Effects ----
+  // ========================
+  // EFFECTS
+  // ========================
+
+  // Initialize
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
+
     const init = async () => {
       const saved = localStorage.getItem("proworkflow-api-key");
       const key = (saved && saved.trim()) || process.env.PW_API_KEY || "";
+
       if (key) {
-        setApiKey(key);
         setIsApiKeySet(true);
         setApiKeyInput(key);
         await loadAllData();
@@ -493,8 +593,10 @@ const CreateTask: React.FC = () => {
     init();
   }, [loadAllData]);
 
+  // Auto-save draft
   useEffect(() => {
     if (!isApiKeySet || isFirstLoad.current) return;
+
     const timer = setTimeout(() => {
       if (taskName || description || projectId || assigneeId) {
         setDraft({
@@ -509,6 +611,7 @@ const CreateTask: React.FC = () => {
         });
       }
     }, 500);
+
     return () => clearTimeout(timer);
   }, [
     isApiKeySet,
@@ -523,6 +626,7 @@ const CreateTask: React.FC = () => {
     setDraft,
   ]);
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -539,13 +643,20 @@ const CreateTask: React.FC = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [taskName, projectId, showConfirmDialog, handleSubmitClick]);
 
-  // ---- Render Helpers ----
+  // ========================
+  // RENDER HELPERS
+  // ========================
+
   const getAttachmentsLabel = (): string => {
     const count = outlookData?.attachments?.length ?? 0;
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
 
-  // ---- Render ----
+  // ========================
+  // RENDER
+  // ========================
+
+  // API Key Screen
   if (!isApiKeySet && !loadingData) {
     return (
       <Box sx={{ p: 2 }}>
@@ -614,6 +725,7 @@ const CreateTask: React.FC = () => {
     );
   }
 
+  // Loading Skeleton
   if (loadingData) {
     return (
       <Box sx={{ p: 2 }}>
@@ -630,14 +742,20 @@ const CreateTask: React.FC = () => {
     );
   }
 
-  // Main form
+  // Main Form
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%", p: 0 }}>
-      {/* Outlook header */}
+      {/* Outlook Header */}
       {outlookData && (
         <Paper
           elevation={0}
-          sx={{ p: 1, mb: 1.5, bgcolor: "#f8f9fa", border: "1px solid #e0e0e0", borderRadius: 1 }}
+          sx={{
+            p: 1,
+            mb: 1.5,
+            bgcolor: "#f8f9fa",
+            border: "1px solid #e0e0e0",
+            borderRadius: 1,
+          }}
         >
           <Stack
             direction="row"
@@ -678,6 +796,7 @@ const CreateTask: React.FC = () => {
               </IconButton>
             </Tooltip>
           </Stack>
+
           <Collapse in={showEmailPreview}>
             <Divider sx={{ my: 0.5 }} />
             <Box sx={{ mt: 0.5 }}>
@@ -702,7 +821,7 @@ const CreateTask: React.FC = () => {
               >
                 {cleanEmailBody(outlookData.body || "No content") || "No content"}
               </Paper>
-              {outlookData.attachments?.length > 0 && (
+              {outlookData.attachments && outlookData.attachments.length > 0 && (
                 <Box sx={{ mt: 0.5 }}>
                   <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.6rem" }}>
                     Attachments: {outlookData.attachments.map((a) => a.name).join(", ")}
@@ -761,6 +880,7 @@ const CreateTask: React.FC = () => {
       )}
 
       <Stack spacing={1.5}>
+        {/* Task Name */}
         <TextField
           required
           size="small"
@@ -783,6 +903,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
+        {/* Project */}
         <FormControl fullWidth required size="small" sx={smallLabelStyles} disabled={loading}>
           <InputLabel sx={{ fontSize: "0.7rem" }}>Project</InputLabel>
           <Select
@@ -809,6 +930,7 @@ const CreateTask: React.FC = () => {
           </Select>
         </FormControl>
 
+        {/* Assignee */}
         <FormControl fullWidth size="small" sx={smallLabelStyles} disabled={loading}>
           <InputLabel sx={{ fontSize: "0.7rem" }}>Assignee</InputLabel>
           <Select
@@ -835,6 +957,7 @@ const CreateTask: React.FC = () => {
           </Select>
         </FormControl>
 
+        {/* Description */}
         <TextField
           fullWidth
           size="small"
@@ -857,6 +980,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
+        {/* Priority & Due Date */}
         <Stack direction="row" spacing={1.5}>
           <FormControl fullWidth size="small" sx={smallLabelStyles} disabled={loading}>
             <InputLabel sx={{ fontSize: "0.7rem" }}>Priority</InputLabel>
@@ -877,6 +1001,7 @@ const CreateTask: React.FC = () => {
               </MenuItem>
             </Select>
           </FormControl>
+
           <TextField
             fullWidth
             size="small"
@@ -898,6 +1023,7 @@ const CreateTask: React.FC = () => {
           />
         </Stack>
 
+        {/* Options */}
         <Paper variant="outlined" sx={{ p: 1 }}>
           <Stack spacing={0.5}>
             <FormControlLabel
@@ -912,7 +1038,7 @@ const CreateTask: React.FC = () => {
               }
               label={
                 <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
-                  <PriorityHigh fontSize="small" color="error" sx={{ verticalAlign: "middle" }} />{" "}
+                  <PriorityHigh fontSize="small" color="error" sx={{ verticalAlign: "middle" }} />
                   Mark as Urgent
                 </Typography>
               }
@@ -939,6 +1065,7 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Paper>
 
+        {/* Keyboard shortcuts */}
         <Typography
           variant="caption"
           color="textSecondary"
@@ -955,6 +1082,7 @@ const CreateTask: React.FC = () => {
           </Stack>
         </Typography>
 
+        {/* Buttons */}
         <Stack direction="row" spacing={1.5} sx={{ justifyContent: "flex-end" }}>
           <Button
             variant="outlined"
@@ -983,6 +1111,7 @@ const CreateTask: React.FC = () => {
         </Stack>
       </Stack>
 
+      {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle sx={{ fontSize: "0.9rem" }}>Confirm Action</DialogTitle>
         <DialogContent>
@@ -1007,6 +1136,7 @@ const CreateTask: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Toast / Snackbar */}
       <Snackbar
         open={toastOpen}
         autoHideDuration={4000}
