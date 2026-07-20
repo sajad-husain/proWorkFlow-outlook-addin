@@ -77,7 +77,7 @@ const base64ToBlob = (base64: string, mimeType: string = "application/octet-stre
   return new Blob([byteArray], { type: mimeType });
 };
 
-// 🔥 Custom styles for small fonts
+// Custom styles for small fonts
 const smallLabelStyles = {
   "& .MuiInputLabel-root": {
     fontSize: "0.7rem",
@@ -394,16 +394,24 @@ const CreateTask: React.FC = () => {
     setPendingAction(null);
   };
 
-  // Direct create task using /projects/items
+  // 🔥 UPDATED: createTaskDirectly now wraps payload in { input: ... }
   const createTaskDirectly = async (taskData: any): Promise<any> => {
     const API_KEY = localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
     if (!API_KEY) {
       throw new Error("API key is not set.");
     }
 
+    // Ensure name is never empty
+    if (!taskData.name || taskData.name.trim() === "") {
+      taskData.name = "Untitled Task";
+    }
+
     const url = "https://api.proworkflow.com/api/v4/projects/items";
+    const wrappedPayload = { input: taskData };
+    const body = JSON.stringify(wrappedPayload);
+
     console.log("🔍 Creating task via:", url);
-    console.log("📦 Payload:", taskData);
+    console.log("📦 Full request body:", body);
 
     const response = await fetch(url, {
       method: "POST",
@@ -412,7 +420,7 @@ const CreateTask: React.FC = () => {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(taskData),
+      body,
     });
 
     if (!response.ok) {
@@ -426,7 +434,7 @@ const CreateTask: React.FC = () => {
     return jsonData;
   };
 
-  // ----- Submit handler with priority as STRING -----
+  // 🔥 UPDATED: handleSubmit builds dynamic payload and calls createTaskDirectly
   const handleSubmit = async (e?: React.FormEvent | React.SyntheticEvent) => {
     if (e && e.preventDefault) {
       e.preventDefault();
@@ -435,7 +443,8 @@ const CreateTask: React.FC = () => {
     setError(null);
     setSuccess(false);
 
-    if (!taskName.trim()) {
+    const trimmedName = taskName.trim();
+    if (!trimmedName) {
       showToast("Task name is required", "error");
       return;
     }
@@ -449,53 +458,45 @@ const CreateTask: React.FC = () => {
     try {
       const priorityValue = priority === "Low" ? 1 : priority === "Medium" ? 2 : 3;
 
-      // 🔥 Build payload – start with required fields
-      const taskData: any = {
+      const payload: any = {
         projectid: projectId,
-        name: taskName.trim(),
-        itemtypeid: 1,
-        categoryid: 1,
-        itemcollectionid: 1,
-        billType: 1,
-        budgetType: 1,
-        chargeRateType: 1,
-        priority: priorityValue,
+        name: trimmedName,
         priorityid: priorityValue,
+        description: description.trim() || "No description provided",
       };
 
-      // Add optional fields only if they have valid values
-      if (description.trim()) {
-        taskData.description = description.trim();
-      } else {
-        taskData.description = "No description provided"; // ensure non-empty
-      }
-
       if (assigneeId) {
-        taskData.contactid = String(assigneeId);
+        payload.contactid = String(assigneeId);
       }
-      // If no assignee, omit contactid entirely
 
       if (dueDate) {
-        taskData.duedate = dueDate;
-        taskData.startdate = dueDate;
+        payload.duedate = dueDate;
+        payload.startdate = dueDate;
       }
 
       if (isUrgent) {
-        taskData.urgent = true;
+        payload.urgent = true;
       }
 
-      // Log the final payload
-      console.log("📦 Final payload:", JSON.stringify(taskData, null, 2));
+      // Optional: include these only if you know they are required
+      // payload.itemtypeid = 1;
+      // payload.categoryid = 1;
+      // payload.itemcollectionid = 1;
+      // payload.billType = 1;
+      // payload.budgetType = 1;
+      // payload.chargeRateType = 1;
 
-      const result = await createTaskDirectly(taskData);
+      console.log("📦 Payload before sending:", JSON.stringify(payload, null, 2));
+
+      const result = await createTaskDirectly(payload);
       const newTaskId = result.id || result?.data?.id;
       if (!newTaskId) {
         throw new Error("Task created but no ID returned");
       }
 
-      // Upload attachments if any (unchanged)
-      if (includeAttachments && outlookData?.attachments && outlookData.attachments.length > 0) {
-        // ... (attachments upload code as before)
+      // ---- Attachment upload (unchanged) ----
+      if (includeAttachments && outlookData?.attachments?.length) {
+        // ... your attachment upload code here
       }
 
       setSuccess(true);
@@ -552,7 +553,7 @@ const CreateTask: React.FC = () => {
     return count > 0 ? ` (${count} files)` : " (No attachments found)";
   };
 
-  // ----- Render -----
+  // ----- Render (unchanged from your original) -----
   if (!isApiKeySet && !loadingData) {
     return (
       <Box sx={{ p: 2 }}>
