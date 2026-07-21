@@ -53,6 +53,7 @@ import {
   cleanEmailBody,
 } from "../../services/outlook";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { smallLabelStyles, smallMenuProps } from "../../theme/styles";
 
 // ========================
 // LOCAL TYPES
@@ -109,15 +110,6 @@ const PRIORITY_MAP: Record<"Low" | "Medium" | "High", number> = {
   Low: 1,
   Medium: 2,
   High: 3,
-};
-
-const smallLabelStyles = {
-  "& .MuiInputLabel-root": { fontSize: "0.7rem" },
-  "& .MuiInputBase-root": { fontSize: "0.75rem" },
-  "& .MuiFormHelperText-root": { fontSize: "0.65rem" },
-  "& .MuiSelect-select": { fontSize: "0.75rem" },
-  "& .MuiOutlinedInput-input": { fontSize: "0.75rem", padding: "8px 12px" },
-  "& .MuiInputLabel-shrink": { fontSize: "0.7rem" },
 };
 
 // ========================
@@ -881,6 +873,7 @@ const CreateTask: React.FC = () => {
           <Select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value as number)}
+            MenuProps={smallMenuProps}
             label="Project"
             disabled={loadingProjects || loading}
             startAdornment={
