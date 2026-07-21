@@ -93,7 +93,6 @@ proWorkFlow-outlook-addin/
 |---|---|
 | Framework | React 18.2 + TypeScript 5.4 (ES5 target, strict mode) |
 | UI Library | Material UI (MUI) v9 — theming, components, CSS-in-JS |
-| UI Components | Microsoft Fluent UI React (imported, available for use) |
 | Office Integration | Office.js (mailbox, item body, notifications via CDN) |
 | API Backend | ProWorkflow REST API v4 (`https://api.proworkflow.com/api/v4`) |
 | Bundler | Webpack 5 (multi-entry, HMR, HTTPS dev server on port 3000) |

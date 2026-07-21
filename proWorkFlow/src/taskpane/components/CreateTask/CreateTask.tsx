@@ -55,7 +55,7 @@ import {
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 // ========================
-// LOCAL TYPES (No external imports)
+// LOCAL TYPES
 // ========================
 
 interface DraftData {
@@ -70,11 +70,17 @@ interface DraftData {
 }
 
 interface CreateTaskPayload {
-  projectid: number;
   name: string;
+
+  itemtypeid: number;
+  itemcollectionid: number;
+
+  projectid?: number;
   description?: string;
   priorityid?: number;
-  contactid?: string;
+
+  contacts?: { id: number }[];
+
   startdate?: string;
   duedate?: string;
   urgent?: boolean;
@@ -84,14 +90,11 @@ interface CreateTaskResponse {
   id: number;
 }
 
-// Local Project type (replacing import from proworkflow.ts)
 interface Project {
   id: number;
   name: string;
-  // Add other fields if needed
 }
 
-// Local User type (replacing import from proworkflow.ts)
 interface User {
   id: number;
   name: string;
@@ -111,6 +114,7 @@ const PRIORITY_MAP: Record<"Low" | "Medium" | "High", number> = {
   High: 3,
 };
 
+// 🔥 Same compact styles as EditTask
 const smallLabelStyles = {
   "& .MuiInputLabel-root": { fontSize: "0.7rem" },
   "& .MuiInputBase-root": { fontSize: "0.75rem" },
@@ -166,51 +170,49 @@ const CreateTask: React.FC = () => {
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
   // ========================
-  // LOCAL API FUNCTIONS (SELF-CONTAINED)
+  // 🔥 FIXED DIRECT FETCH (same as EditTask)
   // ========================
 
-  // Get API key from localStorage
   const getApiKey = (): string => {
     return localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
   };
 
-  // Test API key - self-contained
-  const testApiKey = async (key: string): Promise<boolean> => {
-    try {
-      const url = "https://api.proworkflow.com/api/v4/projects?limit=1";
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { apikey: key, Accept: "application/json" },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  };
-
-  // Fetch projects - self-contained
-  const fetchProjects = async (): Promise<Project[]> => {
+  // Direct fetch for projects – identical to EditTask
+  const fetchProjectsDirectly = async (): Promise<Project[]> => {
     const API_KEY = getApiKey();
-    if (!API_KEY) throw new Error("API key not set");
+    if (!API_KEY) throw new Error("API key is not set.");
 
     const url = "https://api.proworkflow.com/api/v4/projects";
+    console.log("🔍 Fetching projects from:", url);
+
     const response = await fetch(url, {
       method: "GET",
-      headers: { apikey: API_KEY, Accept: "application/json" },
+      headers: {
+        apikey: API_KEY,
+        Accept: "application/json",
+      },
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to fetch projects (${response.status}): ${text}`);
+      const errorText = await response.text();
+      console.error("❌ Failed to fetch projects:", errorText);
+      throw new Error(`Failed to fetch projects (${response.status}): ${errorText}`);
     }
 
-    const json = await response.json();
-    const data = json.data || json;
-    if (!Array.isArray(data)) return [];
-    return data.map((p: any) => ({ id: p.id, name: p.name }));
+    const jsonData = await response.json();
+    console.log("✅ Projects response:", jsonData);
+
+    const data = jsonData.data || jsonData;
+    if (Array.isArray(data)) {
+      return data.map((p: any) => ({
+        id: p.id,
+        name: p.name || p.title || "Unnamed Project",
+      }));
+    }
+    return [];
   };
 
-  // Fetch contacts - self-contained
+  // Fetch contacts (unchanged)
   const fetchContacts = async (): Promise<User[]> => {
     const API_KEY = getApiKey();
     if (!API_KEY) throw new Error("API key not set");
@@ -223,6 +225,7 @@ const CreateTask: React.FC = () => {
 
     if (!response.ok) {
       const text = await response.text();
+      console.log("TEXT: ", text);
       throw new Error(`Failed to fetch contacts (${response.status}): ${text}`);
     }
 
@@ -248,7 +251,7 @@ const CreateTask: React.FC = () => {
     });
   };
 
-  // Create task API - self-contained
+  // Create task (unchanged)
   const createTaskDirectly = async (payload: CreateTaskPayload): Promise<CreateTaskResponse> => {
     const API_KEY = getApiKey();
     if (!API_KEY) throw new Error("API key is not set.");
@@ -283,8 +286,11 @@ const CreateTask: React.FC = () => {
     console.log("Status:", response.status);
     console.log("Response:", json);
     console.groupEnd();
+    console.log("Error Data:", json?.data);
 
     if (!response.ok) {
+      console.error(json);
+
       let msg = `Failed (${response.status})`;
       if (json?.error) msg = json.error;
       else if (json?.message) msg = json.message;
@@ -305,19 +311,20 @@ const CreateTask: React.FC = () => {
     const payload: Partial<CreateTaskPayload> = {
       projectid: projectId,
       name: taskName.trim(),
+      itemtypeid: 1,
+      itemcollectionid: 1,
     };
 
     if (description.trim()) payload.description = description.trim();
     const priorityValue = PRIORITY_MAP[priority];
     if (priorityValue) payload.priorityid = priorityValue;
-    if (assigneeId > 0) payload.contactid = String(assigneeId);
+    if (assigneeId > 0) payload.contacts = [{ id: assigneeId }];
     if (dueDate) {
       payload.duedate = dueDate;
       payload.startdate = dueDate;
     }
     if (isUrgent) payload.urgent = true;
 
-    // Clean undefined, null, empty string
     const cleaned: CreateTaskPayload = {} as CreateTaskPayload;
     for (const key in payload) {
       const value = payload[key as keyof typeof payload];
@@ -379,7 +386,7 @@ const CreateTask: React.FC = () => {
   }, [draft]);
 
   // ========================
-  // LOAD ALL DATA
+  // 🔥 FIXED LOAD ALL DATA (uses direct fetch for projects)
   // ========================
 
   const loadAllData = useCallback(async () => {
@@ -389,7 +396,11 @@ const CreateTask: React.FC = () => {
       setLoadingProjects(true);
       setLoadingContacts(true);
 
-      const [projectsData, contactsData] = await Promise.all([fetchProjects(), fetchContacts()]);
+      // Use the same direct fetch as EditTask
+      const [projectsData, contactsData] = await Promise.all([
+        fetchProjectsDirectly(),
+        fetchContacts(),
+      ]);
 
       setProjects(projectsData);
       setContacts(contactsData);
@@ -401,7 +412,7 @@ const CreateTask: React.FC = () => {
     } catch (err: any) {
       const errorMsg = err.message || "Failed to load data. Please check your API key.";
       setError(errorMsg);
-      console.error(err);
+      console.error("❌ Load error:", err);
       setLoadingProjects(false);
       setLoadingContacts(false);
     } finally {
@@ -431,20 +442,23 @@ const CreateTask: React.FC = () => {
 
     setLoading(true);
     try {
-      const isValid = await testApiKey(trimmed);
-      if (isValid) {
-        localStorage.setItem("proworkflow-api-key", trimmed);
-        setIsApiKeySet(true);
-        setError(null);
-        await loadAllData();
-        showToast("API key verified! 🎉", "success");
-      } else {
-        setError("Invalid API key. Please check and try again.");
-        showToast("Invalid API key", "error");
-      }
-    } catch (err) {
-      setError("Failed to verify API key. Please try again.");
-      showToast("Failed to verify API key", "error");
+      // Test key with a lightweight request
+      const testUrl = "https://api.proworkflow.com/api/v4/projects?limit=1";
+      const response = await fetch(testUrl, {
+        method: "GET",
+        headers: { apikey: trimmed, Accept: "application/json" },
+      });
+
+      if (!response.ok) throw new Error("Invalid API key");
+
+      localStorage.setItem("proworkflow-api-key", trimmed);
+      setIsApiKeySet(true);
+      setError(null);
+      await loadAllData();
+      showToast("API key verified! 🎉", "success");
+    } catch (err: any) {
+      setError("Invalid API key. Please check and try again.");
+      showToast("Invalid API key", "error");
     } finally {
       setLoading(false);
     }
@@ -485,8 +499,6 @@ const CreateTask: React.FC = () => {
       const trimmedName = taskName.trim();
       if (!trimmedName) {
         showToast("Task name is required", "error");
-        const el = document.querySelector('input[name="taskName"]') as HTMLInputElement | null;
-        if (el) el.focus();
         return;
       }
       if (!projectId) {
@@ -504,15 +516,26 @@ const CreateTask: React.FC = () => {
 
       try {
         const payload = buildPayload();
-        console.group("🚀 Submitting");
-        console.log("Payload:", payload);
-        console.groupEnd();
+        // const payload = {
+        //   name: "New Test 13",
+        //   itemtypeid: 1,
+        //   itemcollectionid: 1,
+        //   projectid: 1,
+        //   description: "Hello New Task 3",
+        //   priorityid: 2,
+        //   // startdate: "2026-07-25",
+        //   duedate: "2026-07-25",
+        //   urgent: true,
+        //   contacts: [{ id: 1 }],
+        // // };
+        // console.group("🚀 Submitting");
+        // console.log("Payload:", payload);
+        // console.groupEnd();
 
         const result = await createTaskDirectly(payload);
 
         if (includeAttachments && outlookData?.attachments?.length) {
           console.log("📎 Would upload", outlookData.attachments.length, "attachments");
-          // Attachment upload logic can be added here
         }
 
         setSuccess(true);
@@ -572,7 +595,7 @@ const CreateTask: React.FC = () => {
   // EFFECTS
   // ========================
 
-  // Initialize
+  // 🔥 Initialisation – same as EditTask
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
@@ -595,7 +618,10 @@ const CreateTask: React.FC = () => {
 
   // Auto-save draft
   useEffect(() => {
-    if (!isApiKeySet || isFirstLoad.current) return;
+    // console.log(isFirstLoad);
+    if (!isApiKeySet || isFirstLoad.current) {
+      return undefined;
+    }
 
     const timer = setTimeout(() => {
       if (taskName || description || projectId || assigneeId) {
@@ -649,14 +675,14 @@ const CreateTask: React.FC = () => {
 
   const getAttachmentsLabel = (): string => {
     const count = outlookData?.attachments?.length ?? 0;
-    return count > 0 ? ` (${count} files)` : " (No attachments found)";
+    return count > 0 ? ` (${count} files)` : "";
   };
 
   // ========================
   // RENDER
   // ========================
 
-  // API Key Screen
+  // ---- API Key required ----
   if (!isApiKeySet && !loadingData) {
     return (
       <Box sx={{ p: 2 }}>
@@ -705,14 +731,7 @@ const CreateTask: React.FC = () => {
             )}
           </Box>
           <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: "#f8f9fa", textAlign: "left" }}>
-            <Typography
-              variant="caption"
-              color="textSecondary"
-              sx={{ fontWeight: 600, fontSize: "0.65rem" }}
-            >
-              💡 How to get your API key:
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5, fontSize: "0.7rem" }}>
+            <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
               1. Log in to your ProWorkflow account
               <br />
               2. Go to Settings → API Keys
@@ -725,7 +744,7 @@ const CreateTask: React.FC = () => {
     );
   }
 
-  // Loading Skeleton
+  // ---- Loading ----
   if (loadingData) {
     return (
       <Box sx={{ p: 2 }}>
@@ -742,7 +761,7 @@ const CreateTask: React.FC = () => {
     );
   }
 
-  // Main Form
+  // ---- Main Form ----
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: "100%", p: 0 }}>
       {/* Outlook Header */}
@@ -903,7 +922,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Project */}
+        {/* Project – now uses the same data as EditTask */}
         <FormControl fullWidth required size="small" sx={smallLabelStyles} disabled={loading}>
           <InputLabel sx={{ fontSize: "0.7rem" }}>Project</InputLabel>
           <Select
@@ -1136,7 +1155,7 @@ const CreateTask: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Toast / Snackbar */}
+      {/* Toast */}
       <Snackbar
         open={toastOpen}
         autoHideDuration={4000}
