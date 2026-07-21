@@ -52,29 +52,7 @@ import {
   Assignment,
 } from "@mui/icons-material";
 import { proWorkflowApi, Project, User, Task, setApiKey } from "../../services/proworkflow";
-
-// 🔥 Custom styles for small fonts (same as CreateTask)
-const smallLabelStyles = {
-  "& .MuiInputLabel-root": {
-    fontSize: "0.7rem",
-  },
-  "& .MuiInputBase-root": {
-    fontSize: "0.75rem",
-  },
-  "& .MuiFormHelperText-root": {
-    fontSize: "0.65rem",
-  },
-  "& .MuiSelect-select": {
-    fontSize: "0.75rem",
-  },
-  "& .MuiOutlinedInput-input": {
-    fontSize: "0.75rem",
-    padding: "8px 12px",
-  },
-  "& .MuiInputLabel-shrink": {
-    fontSize: "0.7rem",
-  },
-};
+import { smallLabelStyles, smallMenuProps } from "../../theme/styles";
 
 // Helper functions
 const getStatusColor = (status?: string): string => {
