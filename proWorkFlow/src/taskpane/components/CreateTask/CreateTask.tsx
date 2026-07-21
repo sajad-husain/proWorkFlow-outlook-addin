@@ -67,20 +67,17 @@ interface DraftData {
   dueDate: string;
   isUrgent: boolean;
   includeAttachments: boolean;
+  selectedAttachments: number[]; // new
 }
 
 interface CreateTaskPayload {
   name: string;
-
   itemtypeid: number;
   itemcollectionid: number;
-
   projectid?: number;
   description?: string;
   priorityid?: number;
-
   contacts?: { id: number }[];
-
   startdate?: string;
   duedate?: string;
   urgent?: boolean;
@@ -114,7 +111,6 @@ const PRIORITY_MAP: Record<"Low" | "Medium" | "High", number> = {
   High: 3,
 };
 
-// 🔥 Same compact styles as EditTask
 const smallLabelStyles = {
   "& .MuiInputLabel-root": { fontSize: "0.7rem" },
   "& .MuiInputBase-root": { fontSize: "0.75rem" },
@@ -138,6 +134,8 @@ const CreateTask: React.FC = () => {
   const [dueDate, setDueDate] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
   const [includeAttachments, setIncludeAttachments] = useState(false);
+  // 🔥 NEW: selected attachment indices
+  const [selectedAttachments, setSelectedAttachments] = useState<number[]>([]);
 
   // ---- Data State ----
   const [projects, setProjects] = useState<Project[]>([]);
@@ -170,14 +168,13 @@ const CreateTask: React.FC = () => {
   const [draft, setDraft] = useLocalStorage<DraftData | null>("proworkflow-task-draft", null);
 
   // ========================
-  // 🔥 FIXED DIRECT FETCH (same as EditTask)
+  // DIRECT FETCH (same as EditTask)
   // ========================
 
   const getApiKey = (): string => {
     return localStorage.getItem("proworkflow-api-key") || process.env.PW_API_KEY || "";
   };
 
-  // Direct fetch for projects – identical to EditTask
   const fetchProjectsDirectly = async (): Promise<Project[]> => {
     const API_KEY = getApiKey();
     if (!API_KEY) throw new Error("API key is not set.");
@@ -212,7 +209,6 @@ const CreateTask: React.FC = () => {
     return [];
   };
 
-  // Fetch contacts (unchanged)
   const fetchContacts = async (): Promise<User[]> => {
     const API_KEY = getApiKey();
     if (!API_KEY) throw new Error("API key not set");
@@ -251,7 +247,6 @@ const CreateTask: React.FC = () => {
     });
   };
 
-  // Create task (unchanged)
   const createTaskDirectly = async (payload: CreateTaskPayload): Promise<CreateTaskResponse> => {
     const API_KEY = getApiKey();
     if (!API_KEY) throw new Error("API key is not set.");
@@ -286,11 +281,8 @@ const CreateTask: React.FC = () => {
     console.log("Status:", response.status);
     console.log("Response:", json);
     console.groupEnd();
-    console.log("Error Data:", json?.data);
 
     if (!response.ok) {
-      console.error(json);
-
       let msg = `Failed (${response.status})`;
       if (json?.error) msg = json.error;
       else if (json?.message) msg = json.message;
@@ -359,6 +351,7 @@ const CreateTask: React.FC = () => {
       if (data) {
         if (!draft?.taskName && !taskName) setTaskName(data.subject || "");
         if (!draft?.description && !description) setDescription(generateTaskDescription(data));
+        // If we have a draft, we will restore selectedAttachments later
       }
     } catch (err) {
       console.warn("Outlook load error:", err);
@@ -381,12 +374,13 @@ const CreateTask: React.FC = () => {
       setDueDate(draft.dueDate || "");
       setIsUrgent(draft.isUrgent || false);
       setIncludeAttachments(draft.includeAttachments || false);
+      setSelectedAttachments(draft.selectedAttachments || []);
       isFirstLoad.current = false;
     }
   }, [draft]);
 
   // ========================
-  // 🔥 FIXED LOAD ALL DATA (uses direct fetch for projects)
+  // LOAD ALL DATA
   // ========================
 
   const loadAllData = useCallback(async () => {
@@ -396,7 +390,6 @@ const CreateTask: React.FC = () => {
       setLoadingProjects(true);
       setLoadingContacts(true);
 
-      // Use the same direct fetch as EditTask
       const [projectsData, contactsData] = await Promise.all([
         fetchProjectsDirectly(),
         fetchContacts(),
@@ -442,7 +435,6 @@ const CreateTask: React.FC = () => {
 
     setLoading(true);
     try {
-      // Test key with a lightweight request
       const testUrl = "https://api.proworkflow.com/api/v4/projects?limit=1";
       const response = await fetch(testUrl, {
         method: "GET",
@@ -516,32 +508,32 @@ const CreateTask: React.FC = () => {
 
       try {
         const payload = buildPayload();
-        // const payload = {
-        //   name: "New Test 13",
-        //   itemtypeid: 1,
-        //   itemcollectionid: 1,
-        //   projectid: 1,
-        //   description: "Hello New Task 3",
-        //   priorityid: 2,
-        //   // startdate: "2026-07-25",
-        //   duedate: "2026-07-25",
-        //   urgent: true,
-        //   contacts: [{ id: 1 }],
-        // // };
-        // console.group("🚀 Submitting");
-        // console.log("Payload:", payload);
-        // console.groupEnd();
+        console.group("🚀 Submitting");
+        console.log("Payload:", payload);
+        console.groupEnd();
 
         const result = await createTaskDirectly(payload);
 
-        if (includeAttachments && outlookData?.attachments?.length) {
-          console.log("📎 Would upload", outlookData.attachments.length, "attachments");
+        // 🔥 Use selected attachments only
+        if (
+          includeAttachments &&
+          selectedAttachments.length > 0 &&
+          outlookData?.attachments?.length
+        ) {
+          const selectedFiles = selectedAttachments.map((idx) => outlookData.attachments[idx]);
+          console.log(
+            "📎 Selected attachments to upload:",
+            selectedFiles.map((f) => f.name)
+          );
+          // Yahan aap actual attachment upload logic laga sakte hain
+        } else if (includeAttachments && selectedAttachments.length === 0) {
+          console.log("📎 No attachments selected, skipping upload.");
         }
 
         setSuccess(true);
         showToast(
-          includeAttachments && outlookData?.attachments?.length
-            ? "Task & attachments created! 🎉"
+          includeAttachments && selectedAttachments.length > 0
+            ? `Task & ${selectedAttachments.length} attachments created! 🎉`
             : "Task created! 🎉",
           "success"
         );
@@ -562,6 +554,7 @@ const CreateTask: React.FC = () => {
       dueDate,
       buildPayload,
       includeAttachments,
+      selectedAttachments,
       outlookData,
       showToast,
       setDraft,
@@ -581,6 +574,7 @@ const CreateTask: React.FC = () => {
     setDueDate("");
     setIsUrgent(false);
     setIncludeAttachments(false);
+    setSelectedAttachments([]);
     setError(null);
     setSuccess(false);
     setDraft(null);
@@ -595,7 +589,6 @@ const CreateTask: React.FC = () => {
   // EFFECTS
   // ========================
 
-  // 🔥 Initialisation – same as EditTask
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
@@ -616,12 +609,9 @@ const CreateTask: React.FC = () => {
     init();
   }, [loadAllData]);
 
-  // Auto-save draft
+  // Auto-save draft (including selected attachments)
   useEffect(() => {
-    // console.log(isFirstLoad);
-    if (!isApiKeySet || isFirstLoad.current) {
-      return undefined;
-    }
+    if (!isApiKeySet || isFirstLoad.current) return undefined;
 
     const timer = setTimeout(() => {
       if (taskName || description || projectId || assigneeId) {
@@ -634,6 +624,7 @@ const CreateTask: React.FC = () => {
           dueDate,
           isUrgent,
           includeAttachments,
+          selectedAttachments,
         });
       }
     }, 500);
@@ -649,6 +640,7 @@ const CreateTask: React.FC = () => {
     dueDate,
     isUrgent,
     includeAttachments,
+    selectedAttachments,
     setDraft,
   ]);
 
@@ -675,6 +667,10 @@ const CreateTask: React.FC = () => {
 
   const getAttachmentsLabel = (): string => {
     const count = outlookData?.attachments?.length ?? 0;
+    const selectedCount = selectedAttachments.length;
+    if (includeAttachments && count > 0) {
+      return ` (${selectedCount} of ${count} selected)`;
+    }
     return count > 0 ? ` (${count} files)` : "";
   };
 
@@ -792,6 +788,11 @@ const CreateTask: React.FC = () => {
               color="primary"
               sx={{ height: 18, fontSize: "0.6rem" }}
             />
+            <Tooltip title="Refresh">
+              <IconButton size="small" onClick={handleRefreshOutlook} disabled={loadingOutlook}>
+                <Refresh fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Typography
               variant="caption"
               color="textSecondary"
@@ -800,55 +801,7 @@ const CreateTask: React.FC = () => {
               Subject: {outlookData.subject}
             </Typography>
             <Box sx={{ flex: 1 }} />
-            <Tooltip title="Refresh">
-              <IconButton size="small" onClick={handleRefreshOutlook} disabled={loadingOutlook}>
-                <Refresh fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Toggle preview">
-              <IconButton size="small" onClick={() => setShowEmailPreview(!showEmailPreview)}>
-                {showEmailPreview ? (
-                  <ExpandLess fontSize="small" />
-                ) : (
-                  <ExpandMore fontSize="small" />
-                )}
-              </IconButton>
-            </Tooltip>
           </Stack>
-
-          <Collapse in={showEmailPreview}>
-            <Divider sx={{ my: 0.5 }} />
-            <Box sx={{ mt: 0.5 }}>
-              <Typography
-                variant="caption"
-                color="textSecondary"
-                sx={{ mb: 0.5, display: "block", fontSize: "0.6rem" }}
-              >
-                Email Preview:
-              </Typography>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 0.5,
-                  bgcolor: "white",
-                  maxHeight: "80px",
-                  overflow: "auto",
-                  fontSize: "0.7rem",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
-                {cleanEmailBody(outlookData.body || "No content") || "No content"}
-              </Paper>
-              {outlookData.attachments && outlookData.attachments.length > 0 && (
-                <Box sx={{ mt: 0.5 }}>
-                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.6rem" }}>
-                    Attachments: {outlookData.attachments.map((a) => a.name).join(", ")}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Collapse>
         </Paper>
       )}
 
@@ -922,7 +875,7 @@ const CreateTask: React.FC = () => {
           }}
         />
 
-        {/* Project – now uses the same data as EditTask */}
+        {/* Project */}
         <FormControl fullWidth required size="small" sx={smallLabelStyles} disabled={loading}>
           <InputLabel sx={{ fontSize: "0.7rem" }}>Project</InputLabel>
           <Select
@@ -1042,9 +995,10 @@ const CreateTask: React.FC = () => {
           />
         </Stack>
 
-        {/* Options */}
+        {/* Options – with attachment selection list */}
         <Paper variant="outlined" sx={{ p: 1 }}>
           <Stack spacing={0.5}>
+            {/* Urgent checkbox */}
             <FormControlLabel
               control={
                 <Checkbox
@@ -1062,12 +1016,22 @@ const CreateTask: React.FC = () => {
                 </Typography>
               }
             />
-            <Divider />
+            {/* Master checkbox for attachments */}
             <FormControlLabel
               control={
                 <Checkbox
                   checked={includeAttachments}
-                  onChange={(e) => setIncludeAttachments(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIncludeAttachments(checked);
+                    if (!checked) {
+                      setSelectedAttachments([]); // clear selection when toggled off
+                    } else if (outlookData?.attachments?.length) {
+                      // Optionally select all by default? The user wants to choose, so we can keep selection empty.
+                      // But to make it obvious, we can leave empty and let user pick.
+                      // We'll leave empty.
+                    }
+                  }}
                   disabled={!outlookData?.attachments?.length || loading}
                   size="small"
                 />
@@ -1081,6 +1045,50 @@ const CreateTask: React.FC = () => {
                 </Stack>
               }
             />
+
+            {/* Attachment list – visible only when includeAttachments is true and attachments exist */}
+            {includeAttachments &&
+              outlookData?.attachments &&
+              outlookData.attachments.length > 0 && (
+                <Box sx={{ ml: 3, mt: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ fontSize: "0.65rem", display: "block", mb: 0.5 }}
+                  >
+                    Select the attachments you want to include:
+                  </Typography>
+                  <Stack spacing={0.5}>
+                    {outlookData.attachments.map((att, index) => (
+                      <FormControlLabel
+                        key={index}
+                        control={
+                          <Checkbox
+                            checked={selectedAttachments.includes(index)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAttachments([...selectedAttachments, index]);
+                              } else {
+                                setSelectedAttachments(
+                                  selectedAttachments.filter((i) => i !== index)
+                                );
+                              }
+                            }}
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" sx={{ fontSize: "0.7rem" }}>
+                            {att.name} ({(att.size / 1024).toFixed(1)} KB)
+                          </Typography>
+                        }
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+            <Divider />
           </Stack>
         </Paper>
 
