@@ -1,13 +1,15 @@
 import React from "react";
-import { AppBar, Toolbar, Typography, Tabs, Tab, Box } from "@mui/material";
+import { AppBar, Toolbar, Typography, Tabs, Tab, Box, SxProps, Theme } from "@mui/material";
 import { Assignment, EditNote } from "@mui/icons-material";
 
 interface HeaderProps {
   activeRoute?: "create" | "edit";
   onRouteChange?: (route: "create" | "edit") => void;
+  // Optional: allow overriding styles
+  sx?: SxProps<Theme>;
 }
 
-const Header: React.FC<HeaderProps> = ({ activeRoute = "create", onRouteChange }) => {
+const Header: React.FC<HeaderProps> = ({ activeRoute = "create", onRouteChange, sx }) => {
   const getTabIndex = (route: "create" | "edit"): number => {
     return route === "create" ? 0 : 1;
   };
@@ -20,49 +22,68 @@ const Header: React.FC<HeaderProps> = ({ activeRoute = "create", onRouteChange }
   };
 
   return (
-    <AppBar position="static" elevation={0} sx={{ bgcolor: "primary.main" }}>
+    <AppBar
+      position="static"
+      elevation={0}
+      sx={{
+        bgcolor: "white", // 🔥 white background
+        borderBottom: "1px solid #e0e0e0", // subtle separator
+        ...sx, // allow external overrides
+      }}
+    >
       <Toolbar
         sx={{
           flexDirection: "column",
           alignItems: "stretch",
           p: 0,
-          minHeight: "48px", // default is 64px, we reduce
+          minHeight: "48px",
         }}
       >
+        {/* Title row */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             px: 1.5,
-            py: 0.5, // less padding
+            py: 0.5,
           }}
         >
           <Typography
-            variant="subtitle1" // smaller variant
-            sx={{ flex: 1, color: "white", fontWeight: 600, fontSize: "0.9rem" }}
+            variant="subtitle1"
+            sx={{
+              flex: 1,
+              color: "primary.main", // 🔥 primary color text
+              fontWeight: 600,
+              fontSize: "0.9rem",
+            }}
           >
             ProWorkflow
           </Typography>
         </Box>
 
+        {/* Tabs */}
         <Tabs
           value={getTabIndex(activeRoute)}
           onChange={handleChange}
           sx={{
-            bgcolor: "rgba(255,255,255,0.05)",
-            minHeight: "36px", // default 48px, reduced
+            bgcolor: "transparent",
+            minHeight: "36px",
             "& .MuiTab-root": {
-              color: "rgba(255,255,255,0.7)",
+              color: "text.secondary", // 🔥 unselected – grey
               minHeight: "36px",
-              padding: "4px 12px", // reduced padding
-              fontSize: "0.75rem", // smaller font
+              padding: "4px 12px",
+              fontSize: "0.75rem",
               textTransform: "none",
               "&.Mui-selected": {
-                color: "white",
+                color: "primary.main", // 🔥 selected – primary
+              },
+              "&:hover": {
+                color: "primary.main",
+                bgcolor: "rgba(0, 0, 0, 0.04)",
               },
             },
             "& .MuiTabs-indicator": {
-              bgcolor: "white",
+              bgcolor: "primary.main", // 🔥 indicator – primary
               height: "2px",
             },
           }}
